@@ -1,8 +1,6 @@
 package com.ruan.flowgym.ui.screens
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -10,7 +8,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.ruan.flowgym.data.model.SerieTreinoResponseDTO
 import com.ruan.flowgym.ui.viewmodel.TreinoAtivoViewModel
 import com.ruan.flowgym.ui.viewmodel.TreinoUiState
 
@@ -18,226 +15,165 @@ import com.ruan.flowgym.ui.viewmodel.TreinoUiState
 @Composable
 fun TreinoAtivoScreen(
     viewModel: TreinoAtivoViewModel,
-    idUsuarioLogado: Long = 1L // ID fixo para testes
+    idUsuario: Long = 1L
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("FlowGym - Treino Ativo") }
+                title = { Text("FlowGym - Treino Ativo") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             )
         }
-    ) { paddingValues ->
+    ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp)
+                .padding(innerPadding)
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
         ) {
-            when (val currentState = state) {
-                is TreinoUiState.SemSessao -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
+            when (val state = uiState) {
+                is TreinoUiState.Idle -> {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             text = "Nenhum treino em andamento",
-                            style = MaterialTheme.typography.titleMedium
+                            style = MaterialTheme.typography.bodyLarge
                         )
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.iniciarTreino(idUsuarioLogado) }) {
+                        Button(onClick = { viewModel.iniciarTreino(idUsuario) }) {
                             Text("Iniciar Novo Treino")
                         }
                     }
                 }
 
-                is TreinoUiState.Carregando -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                is TreinoUiState.Loading -> {
+                    CircularProgressIndicator()
                 }
 
-                is TreinoUiState.SessaoAtiva -> {
-                    ConteudoTreinoAtivo(
-                        state = currentState,
-                        onSalvarSerie = { idEx, carga, reps ->
-                            viewModel.registrarSerie(idEx, carga, reps)
-                        },
-                        onFinalizarTreino = { viewModel.finalizarTreino() }
-                    )
-                }
+                is TreinoUiState.Sucesso -> {
+                    val sessao = state.sessao
+                    var idExercicioText by remember { mutableStateOf("") }
+                    var cargaText by remember { mutableStateOf("") }
+                    var repeticoesText by remember { mutableStateOf("") }
 
-                is TreinoUiState.Finalizado -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = "Sessão de Treino #${sessao.id ?: "-"}",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Text(
+                                    text = "Status: ${sessao.status ?: "EM ANDAMENTO"}",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
                         Text(
-                            text = "💪 Treino Finalizado com Sucesso!",
-                            style = MaterialTheme.typography.headlineSmall
+                            text = "Registrar Série",
+                            style = MaterialTheme.typography.titleSmall
                         )
+
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Sessão #${currentState.sessao.id} salva no histórico.")
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Button(onClick = { viewModel.iniciarTreino(idUsuarioLogado) }) {
-                            Text("Iniciar Outro Treino")
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = idExercicioText,
+                                onValueChange = { idExercicioText = it },
+                                label = { Text("ID Exer.") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedTextField(
+                                value = cargaText,
+                                onValueChange = { cargaText = it },
+                                label = { Text("Carga (kg)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedTextField(
+                                value = repeticoesText,
+                                onValueChange = { repeticoesText = it },
+                                label = { Text("Reps") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Button(
+                            onClick = {
+                                val idExercicio = idExercicioText.toLongOrNull()
+                                val carga = cargaText.toDoubleOrNull()
+                                val reps = repeticoesText.toIntOrNull()
+                                val idSessao = sessao.id
+
+                                if (idSessao != null && idExercicio != null && carga != null && reps != null) {
+                                    viewModel.registrarSerie(
+                                        idSessao = idSessao,
+                                        idExercicio = idExercicio,
+                                        carga = carga,
+                                        repeticoes = reps
+                                    )
+                                    idExercicioText = ""
+                                    cargaText = ""
+                                    repeticoesText = ""
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Salvar Série")
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Button(
+                            onClick = {
+                                sessao.id?.let { idSessao ->
+                                    viewModel.finalizarTreino(idSessao)
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Finalizar Treino")
                         }
                     }
                 }
 
                 is TreinoUiState.Erro -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = currentState.mensagem,
-                            color = MaterialTheme.colorScheme.error
+                            text = state.mensagem,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium
                         )
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.iniciarTreino(idUsuarioLogado) }) {
+                        Button(onClick = { viewModel.iniciarTreino(idUsuario) }) {
                             Text("Tentar Novamente")
                         }
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-fun ConteudoTreinoAtivo(
-    state: TreinoUiState.SessaoAtiva,
-    onSalvarSerie: (Long, Double, Int) -> Unit,
-    onFinalizarTreino: () -> Unit
-) {
-    var idExercicioInput by remember { mutableStateOf("1") }
-    var cargaInput by remember { mutableStateOf("") }
-    var repsInput by remember { mutableStateOf("") }
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Sessão Ativa #${state.sessao.id}",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = "Iniciada em: ${state.sessao.dataHoraInicio}",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Formulário para registrar série
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Registrar Série", style = MaterialTheme.typography.titleSmall)
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = idExercicioInput,
-                        onValueChange = { idExercicioInput = it },
-                        label = { Text("ID Exer.") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = cargaInput,
-                        onValueChange = { cargaInput = it },
-                        label = { Text("Carga (kg)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = repsInput,
-                        onValueChange = { repsInput = it },
-                        label = { Text("Reps") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                state.mensagemErro?.let { erro ->
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = erro, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Button(
-                    onClick = {
-                        val idEx = idExercicioInput.toLongOrNull() ?: 1L
-                        val carga = cargaInput.toDoubleOrNull() ?: 0.0
-                        val reps = repsInput.toIntOrNull() ?: 0
-                        if (carga > 0 && reps > 0) {
-                            onSalvarSerie(idEx, carga, reps)
-                            cargaInput = ""
-                            repsInput = ""
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Adicionar Série")
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text("Séries Registradas nesta Sessão", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(8.dp))
-
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(state.series) { serie ->
-                ItemSerie(serie)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            onClick = onFinalizarTreino,
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Finalizar Treino")
-        }
-    }
-}
-
-@Composable
-fun ItemSerie(serie: SerieTreinoResponseDTO) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(text = serie.nomeExercicio, style = MaterialTheme.typography.bodyLarge)
-                Text(text = "Série #${serie.id}", style = MaterialTheme.typography.bodySmall)
-            }
-            Text(
-                text = "${serie.carga} kg  ×  ${serie.repeticoes} reps",
-                style = MaterialTheme.typography.titleMedium
-            )
         }
     }
 }

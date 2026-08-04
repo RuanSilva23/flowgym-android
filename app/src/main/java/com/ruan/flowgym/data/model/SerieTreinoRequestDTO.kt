@@ -1,10 +1,8 @@
 package com.ruan.flowgym.data.model
 
-data class SerieTreinoResponseDTO(
-    val id: Long,
+data class SerieTreinoRequestDTO(
     val idSessao: Long,
     val idExercicio: Long,
-    val nomeExercicio: String = "Exercício",
     val carga: Double,
     val repeticoes: Int
 )
