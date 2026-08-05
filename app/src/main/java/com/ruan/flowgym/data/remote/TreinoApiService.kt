@@ -15,7 +15,8 @@ interface TreinoApiService {
 
     @POST("treinos/iniciar/{idUsuario}")
     suspend fun iniciarSessao(
-        @Path("idUsuario") idUsuario: Long
+        @Path("idUsuario") idUsuario: Long,
+        @Query("idRotina") idRotina: Long? = null
     ): Response<SessaoTreinoResponseDTO>
 
     @POST("treinos/salvar-serie")
@@ -33,6 +34,10 @@ interface TreinoApiService {
         @Path("idUsuario") idUsuario: Long
     ): Response<List<SessaoTreinoResponseDTO>>
 
+    @DELETE("treinos/{idSessao}")
+    suspend fun deletarSessao(
+        @Path("idSessao") idSessao: Long
+    ): Response<Void>
 
     // === EXERCÍCIOS (ExercicioController) ===
 
@@ -59,7 +64,7 @@ interface TreinoApiService {
         @Body dto: CriarFichaRequestDTO
     ): Response<RotinaResponseDTO>
 
-    @GET("api/fichas/usuario/{idUsuario}")
+    @GET("api/fichas/listar/{idUsuario}")
     suspend fun listarFichasPorUsuario(
         @Path("idUsuario") idUsuario: Long
     ): Response<List<RotinaResponseDTO>>
@@ -68,4 +73,15 @@ interface TreinoApiService {
     suspend fun buscarRotinaPorId(
         @Path("idRotina") idRotina: Long
     ): Response<RotinaResponseDTO>
+
+    @PUT("api/fichas/{id}")
+    suspend fun editarFicha(
+        @Path("id") idFicha: Long,
+        @Body request: CriarFichaRequestDTO
+    ): Response<RotinaResponseDTO>
+
+    @DELETE("api/fichas/{id}")
+    suspend fun deletarFicha(
+        @Path("id") idFicha: Long
+    ): Response<Void>
 }

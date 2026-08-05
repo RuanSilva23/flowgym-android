@@ -1,5 +1,6 @@
 package com.ruan.flowgym.ui.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ruan.flowgym.data.model.SessaoTreinoResponseDTO
@@ -40,6 +41,24 @@ class HomeViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 _uiState.value = HomeUiState.Erro(e.message ?: "Erro ao conectar com o backend")
+            }
+        }
+    }
+
+    fun deletarSessao(idSessao: Long, idUsuario: Long) {
+        viewModelScope.launch {
+            try {
+                val response = api.deletarSessao(idSessao)
+                if (response.isSuccessful) {
+                    // Recarrega a lista do histórico imediatamente
+                    carregarDadosHome(idUsuario)
+
+                } else {
+                    Log.e("DELETAR_TREINO", "Erro no servidor: Código ${response.code()}")
+                }
+            } catch (e: Exception) {
+                // Pode tratar erros de rede se necessário
+                Log.e("DELETAR_TREINO", "Falha de conexão: ${e.localizedMessage}")
             }
         }
     }

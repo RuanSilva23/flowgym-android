@@ -1,5 +1,6 @@
 package com.ruan.flowgym.ui.screens
 
+import java.util.Locale
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -113,13 +114,13 @@ fun HistoricoExercicioScreen(
                             ) {
                                 CardStatMetrica(
                                     titulo = "RECORDE (PR)",
-                                    valor = "${String.format("%.1f", cargaMaxima)} kg",
+                                    valor = String.format(Locale.getDefault(), "%.1f kg", cargaMaxima),
                                     icon = Icons.Default.EmojiEvents,
                                     modifier = Modifier.weight(1f)
                                 )
                                 CardStatMetrica(
                                     titulo = "MÉDIA DE CARGA",
-                                    valor = "${String.format("%.1f", mediaCarga)} kg",
+                                    valor = String.format(Locale.getDefault(), "%.1f kg", mediaCarga),
                                     icon = Icons.Default.Speed,
                                     modifier = Modifier.weight(1f)
                                 )
@@ -213,9 +214,9 @@ fun CardItemHistoricoExercicio(
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isRecorde) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
             } else {
-                MaterialTheme.colorScheme.surface
+                MaterialTheme.colorScheme.surfaceVariant
             }
         )
     ) {
@@ -234,7 +235,7 @@ fun CardItemHistoricoExercicio(
                     modifier = Modifier
                         .size(40.dp)
                         .background(
-                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            color = MaterialTheme.colorScheme.surface,
                             shape = RoundedCornerShape(10.dp)
                         ),
                     contentAlignment = Alignment.Center
@@ -253,6 +254,7 @@ fun CardItemHistoricoExercicio(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
+
                     if (isRecorde) {
                         Text(
                             text = "🏆 Maior carga atingida",

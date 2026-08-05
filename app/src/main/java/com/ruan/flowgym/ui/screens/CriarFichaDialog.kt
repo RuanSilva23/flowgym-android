@@ -1,258 +1,214 @@
 package com.ruan.flowgym.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import com.ruan.flowgym.data.local.entity.ExercicioEntity
 import com.ruan.flowgym.data.model.ItemFichaRequestDTO
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CriarFichaDialog(
     exerciciosDisponiveis: List<ExercicioEntity>,
     onDismiss: () -> Unit,
-    onConfirm: (nome: String, descricao: String, itens: List<ItemFichaRequestDTO>) -> Unit
+    onConfirm: (String, String, List<ItemFichaRequestDTO>) -> Unit
 ) {
     var nome by remember { mutableStateOf("") }
     var descricao by remember { mutableStateOf("") }
 
-    // Lista mutável observável de exercícios adicionados na ficha
-    val itensFormState = remember {
-        mutableStateListOf(ItemFichaFormState())
+    val itensCriacao = remember {
+        mutableStateListOf<EditableItemFicha>().apply {
+            add(EditableItemFicha())
+        }
     }
 
-    val scrollState = rememberScrollState()
-
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp,
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.85f)
-        ) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Nova Ficha de Treino", fontWeight = FontWeight.Bold) },
+        text = {
             Column(
                 modifier = Modifier
-                    .padding(20.dp)
-                    .fillMaxSize()
+                    .fillMaxWidth()
+                    .heightIn(max = 420.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = "Nova Ficha de Treino",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                OutlinedTextField(
+                    value = nome,
+                    onValueChange = { nome = it },
+                    label = { Text("Nome da Ficha") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = descricao,
+                    onValueChange = { descricao = it },
+                    label = { Text("Descrição / Foco") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Área rolável do formulário
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .verticalScroll(scrollState),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Cabeçalho da Ficha
-                    OutlinedTextField(
-                        value = nome,
-                        onValueChange = { nome = it },
-                        label = { Text("Nome da Ficha (ex: Treino A)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = descricao,
-                        onValueChange = { descricao = it },
-                        label = { Text("Descrição / Foco (opcional)") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Divider()
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Exercícios (${itensFormState.size})",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        IconButton(onClick = { itensFormState.add(ItemFichaFormState()) }) {
-                            Icon(Icons.Default.Add, contentDescription = "Adicionar Exercício")
-                        }
-                    }
-
-                    // Linhas de Exercícios Dinâmicos
-                    itensFormState.forEachIndexed { index, item ->
-                        ItemExercicoRow(
-                            index = index,
-                            itemState = item,
-                            exerciciosDisponiveis = exerciciosDisponiveis,
-                            onUpdate = { novoEstado -> itensFormState[index] = novoEstado },
-                            onDelete = {
-                                if (itensFormState.size > 1) {
-                                    itensFormState.removeAt(index)
-                                }
-                            },
-                            canDelete = itensFormState.size > 1
-                        )
+                    Text("Exercícios (${itensCriacao.size})", fontWeight = FontWeight.Bold)
+                    IconButton(onClick = { itensCriacao.add(EditableItemFicha()) }) {
+                        Icon(Icons.Default.Add, contentDescription = "Adicionar Exercício")
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Botões de Ação
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Cancelar")
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    val itensDTO = itensFormState.mapIndexedNotNull { idx, itm -> itm.toDTO(idx + 1) }
-                    val isValid = nome.isNotBlank() && itensDTO.size == itensFormState.size
-
-                    Button(
-                        onClick = {
-                            if (isValid) {
-                                onConfirm(nome, descricao, itensDTO)
-                            }
-                        },
-                        enabled = isValid
-                    ) {
-                        Text("Criar Ficha")
+                    itemsIndexed(itensCriacao) { index, item ->
+                        CardItemFichaCriacao(
+                            index = index + 1,
+                            item = item,
+                            exerciciosDisponiveis = exerciciosDisponiveis,
+                            onRemover = { if (itensCriacao.size > 1) itensCriacao.removeAt(index) }
+                        )
                     }
                 }
             }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val requestItens = itensCriacao.mapIndexed { index, item ->
+                        ItemFichaRequestDTO(
+                            idExercicio = item.idExercicio,
+                            ordem = index + 1,
+                            seriesAlvo = item.series.toIntOrNull() ?: 4,
+                            repeticoesAlvo = item.reps.toIntOrNull() ?: 10,
+                            cargaAlvo = item.carga.toDoubleOrNull() ?: 0.0,
+                            descanso = item.descanso.toIntOrNull() ?: 60
+                        )
+                    }
+                    onConfirm(nome, descricao, requestItens)
+                },
+                enabled = nome.isNotBlank() && itensCriacao.any { it.idExercicio > 0L }
+            ) {
+                Text("Criar Ficha")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
         }
-    }
+    )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ItemExercicoRow(
+fun CardItemFichaCriacao(
     index: Int,
-    itemState: ItemFichaFormState,
+    item: EditableItemFicha,
     exerciciosDisponiveis: List<ExercicioEntity>,
-    onUpdate: (ItemFichaFormState) -> Unit,
-    onDelete: () -> Unit,
-    canDelete: Boolean
+    onRemover: () -> Unit
 ) {
-    var expandedDropdown by remember { mutableStateOf(false) }
+    var dropdownExpanded by remember { mutableStateOf(false) }
+    val exercicioSelecionadoNome = exerciciosDisponiveis.find { it.id == item.idExercicio }?.nome ?: "Selecione o Exercício"
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "#${index + 1}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(end = 8.dp)
-                )
+                Text("#$index", fontWeight = FontWeight.Bold)
 
-                // Dropdown de Seleção de Exercício
-                ExposedDropdownMenuBox(
-                    expanded = expandedDropdown,
-                    onExpandedChange = { expandedDropdown = !expandedDropdown },
-                    modifier = Modifier.weight(1f)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp)
                 ) {
                     OutlinedTextField(
-                        value = itemState.exercicioSelecionado?.nome ?: "Selecione o Exercício",
+                        value = exercicioSelecionadoNome,
                         onValueChange = {},
                         readOnly = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDropdown) },
+                        trailingIcon = {
+                            IconButton(onClick = { dropdownExpanded = !dropdownExpanded }) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "Selecionar Exercício"
+                                )
+                            }
+                        },
                         modifier = Modifier
-                            .menuAnchor()
                             .fillMaxWidth()
+                            .clickable { dropdownExpanded = !dropdownExpanded },
+                        textStyle = MaterialTheme.typography.bodySmall
                     )
 
-                    ExposedDropdownMenu(
-                        expanded = expandedDropdown,
-                        onDismissRequest = { expandedDropdown = false }
+                    DropdownMenu(
+                        expanded = dropdownExpanded,
+                        onDismissRequest = { dropdownExpanded = false }
                     ) {
-                        exerciciosDisponiveis.forEach { exercicio ->
+                        exerciciosDisponiveis.forEach { ex ->
                             DropdownMenuItem(
-                                text = { Text(exercicio.nome) },
+                                text = { Text(ex.nome) },
                                 onClick = {
-                                    onUpdate(itemState.copy(exercicioSelecionado = exercicio))
-                                    expandedDropdown = false
+                                    item.idExercicio = ex.id ?: 0L
+                                    dropdownExpanded = false
                                 }
                             )
                         }
                     }
                 }
 
-                if (canDelete) {
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Remover",
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                    }
+                IconButton(onClick = onRemover) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Remover",
+                        tint = MaterialTheme.colorScheme.error
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Inputs de Séries, Repetições, Carga e Descanso
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
-                    value = itemState.series,
-                    onValueChange = { onUpdate(itemState.copy(series = it)) },
+                    value = item.series,
+                    onValueChange = { item.series = it },
                     label = { Text("Séries") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    singleLine = true
                 )
                 OutlinedTextField(
-                    value = itemState.repeticoes,
-                    onValueChange = { onUpdate(itemState.copy(repeticoes = it)) },
+                    value = item.reps,
+                    onValueChange = { item.reps = it },
                     label = { Text("Reps") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    singleLine = true
                 )
                 OutlinedTextField(
-                    value = itemState.carga,
-                    onValueChange = { onUpdate(itemState.copy(carga = it)) },
+                    value = item.carga,
+                    onValueChange = { item.carga = it },
                     label = { Text("Kg") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    singleLine = true
                 )
                 OutlinedTextField(
-                    value = itemState.descanso,
-                    onValueChange = { onUpdate(itemState.copy(descanso = it)) },
+                    value = item.descanso,
+                    onValueChange = { item.descanso = it },
                     label = { Text("Seg") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    singleLine = true
                 )
             }
         }
