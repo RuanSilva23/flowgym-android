@@ -20,6 +20,7 @@ import com.ruan.flowgym.data.model.SerieTreinoResponseDTO
 import com.ruan.flowgym.ui.viewmodel.TreinoAtivoViewModel
 import com.ruan.flowgym.ui.viewmodel.TreinoUiState
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TreinoAtivoScreen(

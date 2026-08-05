@@ -1,7 +1,9 @@
 package com.ruan.flowgym.data.remote
 
+import com.ruan.flowgym.data.model.CriarFichaRequestDTO
 import com.ruan.flowgym.data.model.ExercicioResponseDTO
 import com.ruan.flowgym.data.model.NovaSerieRequestDTO
+import com.ruan.flowgym.data.model.RotinaResponseDTO
 import com.ruan.flowgym.data.model.SerieTreinoResponseDTO
 import com.ruan.flowgym.data.model.SessaoTreinoResponseDTO
 import retrofit2.Response
@@ -49,4 +51,21 @@ interface TreinoApiService {
         @Path("idUsuario") idUsuario: Long,
         @Path("idExercicio") idExercicio: Long
     ): Response<List<SerieTreinoResponseDTO>>
+
+    // === FICHAS (FichasController) ===
+
+    @POST("api/fichas")
+    suspend fun montarFicha(
+        @Body dto: CriarFichaRequestDTO
+    ): Response<RotinaResponseDTO>
+
+    @GET("api/fichas/usuario/{idUsuario}")
+    suspend fun listarFichasPorUsuario(
+        @Path("idUsuario") idUsuario: Long
+    ): Response<List<RotinaResponseDTO>>
+
+    @GET("api/fichas/{idRotina}")
+    suspend fun buscarRotinaPorId(
+        @Path("idRotina") idRotina: Long
+    ): Response<RotinaResponseDTO>
 }
