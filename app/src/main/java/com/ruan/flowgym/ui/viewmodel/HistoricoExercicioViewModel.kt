@@ -4,10 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ruan.flowgym.data.model.SerieTreinoResponseDTO
 import com.ruan.flowgym.data.remote.RetrofitClient
+import com.ruan.flowgym.data.remote.TreinoApiService
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 sealed interface HistoricoExercicioUiState {
     object Loading : HistoricoExercicioUiState
@@ -15,7 +18,10 @@ sealed interface HistoricoExercicioUiState {
     data class Erro(val mensagem: String) : HistoricoExercicioUiState
 }
 
-class HistoricoExercicioViewModel : ViewModel() {
+@HiltViewModel
+class HistoricoExercicioViewModel @Inject constructor(
+    private val api: TreinoApiService
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow<HistoricoExercicioUiState>(HistoricoExercicioUiState.Loading)
     val uiState: StateFlow<HistoricoExercicioUiState> = _uiState.asStateFlow()

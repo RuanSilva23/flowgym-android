@@ -1,39 +1,22 @@
 package com.ruan.flowgym.ui.navigation
 
+import android.net.Uri
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
-import com.ruan.flowgym.data.local.AppDatabase
-import com.ruan.flowgym.data.remote.RetrofitClient
-import com.ruan.flowgym.data.repository.ExercicioRepository
 import com.ruan.flowgym.ui.screens.*
-import com.ruan.flowgym.ui.viewmodel.TreinoAtivoViewModel
-import com.ruan.flowgym.ui.viewmodel.TreinoAtivoViewModelFactory
-import android.net.Uri
+import com.ruan.flowgym.ui.viewmodel.*
 
 @Composable
 fun MainScreen() {
-    val context = LocalContext.current
-
-    // Inicialização do Room Database e do Repositório
-    val database = remember { AppDatabase.getDatabase(context) }
-    val repository = remember { ExercicioRepository(database.exercicioDao(), RetrofitClient.apiService) }
-
-    // Instanciação do ViewModel utilizando a Factory personalizada
-    val treinoViewModel: TreinoAtivoViewModel = viewModel(
-        factory = TreinoAtivoViewModelFactory(repository)
-    )
-
     val navController = rememberNavController()
 
     val items = listOf(
@@ -79,8 +62,11 @@ fun MainScreen() {
         ) {
             // 1. Home
             composable(BottomNavItem.Home.route) {
+                val homeViewModel: HomeViewModel = hiltViewModel()
                 HomeScreen(
+                    nomeUsuario = "Ruan",
                     idUsuario = 1L,
+                    homeViewModel = homeViewModel,
                     onIniciarTreinoClick = {
                         navController.navigate(BottomNavItem.TreinoAtivo.route)
                     }
@@ -89,6 +75,7 @@ fun MainScreen() {
 
             // 2. Treino Ativo
             composable(BottomNavItem.TreinoAtivo.route) {
+                val treinoViewModel: TreinoAtivoViewModel = hiltViewModel()
                 TreinoAtivoScreen(
                     viewModel = treinoViewModel,
                     idUsuario = 1L
@@ -97,13 +84,13 @@ fun MainScreen() {
 
             // 3. Biblioteca de Exercícios
             composable(BottomNavItem.Historico.route) {
+                val exerciciosViewModel: ExerciciosViewModel = hiltViewModel()
                 ExerciciosScreen(
                     idUsuario = 1L,
+                    viewModel = exerciciosViewModel,
                     onExercicioClick = { exercicio ->
                         val id = exercicio.id ?: return@ExerciciosScreen
                         val nome = exercicio.nome.ifEmpty { "Exercicio" }
-
-                        // Codifica caracteres especiais como '/' e espaços
                         val nomeEncoded = Uri.encode(nome)
 
                         navController.navigate("historico_exercicio/$id/$nomeEncoded")
@@ -111,9 +98,15 @@ fun MainScreen() {
                 )
             }
 
-            // 4. Perfil (Placeholder provisório)
+            // 4. Minhas Fichas (Aba Perfil/Fichas)
             composable(BottomNavItem.Perfil.route) {
-                // Tela de Perfil
+                val fichaViewModel: FichaViewModel = hiltViewModel()
+                FichasScreen(
+                    viewModel = fichaViewModel,
+                    onRotinaClick = { rotinaId ->
+                        // Navegação para detalhe da rotina
+                    }
+                )
             }
 
             // 5. Rota Interna: Evolução de Carga do Exercício
@@ -126,14 +119,15 @@ fun MainScreen() {
             ) { backStackEntry ->
                 val idExercicio = backStackEntry.arguments?.getLong("idExercicio") ?: 0L
                 val rawNome = backStackEntry.arguments?.getString("nomeExercicio") ?: "Exercício"
-
-                // Decodifica a string de volta para a forma original
                 val nomeExercicio = Uri.decode(rawNome)
+
+                val historicoViewModel: HistoricoExercicioViewModel = hiltViewModel()
 
                 HistoricoExercicioScreen(
                     idExercicio = idExercicio,
                     nomeExercicio = nomeExercicio,
                     idUsuario = 1L,
+                    viewModel = historicoViewModel,
                     onVoltarClick = {
                         navController.popBackStack()
                     }

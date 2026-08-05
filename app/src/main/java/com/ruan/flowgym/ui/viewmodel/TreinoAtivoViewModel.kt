@@ -1,15 +1,14 @@
 package com.ruan.flowgym.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.ruan.flowgym.data.local.entity.ExercicioEntity
 import com.ruan.flowgym.data.model.NovaSerieRequestDTO
 import com.ruan.flowgym.data.model.SerieTreinoResponseDTO
 import com.ruan.flowgym.data.model.SessaoTreinoResponseDTO
-import com.ruan.flowgym.data.remote.RetrofitClient
 import com.ruan.flowgym.data.remote.TreinoApiService
 import com.ruan.flowgym.data.repository.ExercicioRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 sealed interface TreinoUiState {
     object Idle : TreinoUiState
@@ -28,11 +28,11 @@ sealed interface TreinoUiState {
     ) : TreinoUiState
     data class Erro(val mensagem: String) : TreinoUiState
 }
-
-class TreinoAtivoViewModel(
+@HiltViewModel // 👈 ADICIONADO
+class TreinoAtivoViewModel @Inject constructor( // 👈 @Inject ADICIONADO E REMOVIDO VALOR DEFAULT
     private val exercicioRepository: ExercicioRepository,
-    private val api: TreinoApiService = RetrofitClient.apiService
-) : ViewModel() {
+    private val api: TreinoApiService
+) : ViewModel(){
 
     // Lista de Exercícios consumida diretamente do Room (carregamento instantâneo offline)
     val exercicios: StateFlow<List<ExercicioEntity>> = exercicioRepository.todosExercicios
@@ -163,18 +163,5 @@ class TreinoAtivoViewModel(
                 _uiState.value = TreinoUiState.Erro("Falha de conexão: ${e.localizedMessage}")
             }
         }
-    }
-}
-
-// Factory necessária para passar o ExercicioRepository ao instanciar o ViewModel no Compose
-class TreinoAtivoViewModelFactory(
-    private val repository: ExercicioRepository
-) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(TreinoAtivoViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return TreinoAtivoViewModel(repository) as T
-        }
-        throw IllegalArgumentException("ViewModel classe não reconhecida")
     }
 }

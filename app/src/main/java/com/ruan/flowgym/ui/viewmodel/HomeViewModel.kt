@@ -4,9 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ruan.flowgym.data.model.SessaoTreinoResponseDTO
 import com.ruan.flowgym.data.remote.RetrofitClient
+import com.ruan.flowgym.data.remote.TreinoApiService
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 sealed class HomeUiState {
     object Loading : HomeUiState()
@@ -15,8 +18,10 @@ sealed class HomeUiState {
     ) : HomeUiState()
     data class Erro(val mensagem: String) : HomeUiState()
 }
-
-class HomeViewModel : ViewModel() {
+@HiltViewModel
+class HomeViewModel @Inject constructor(
+    private val api: TreinoApiService
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val uiState: StateFlow<HomeUiState> = _uiState
