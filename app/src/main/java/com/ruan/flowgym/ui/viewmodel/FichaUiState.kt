@@ -1,9 +1,9 @@
 package com.ruan.flowgym.ui.viewmodel
 
-import com.ruan.flowgym.data.local.model.RotinaComExercicios
+import com.ruan.flowgym.data.model.RotinaResponseDTO
 
-sealed interface FichaUiState {
-    object Loading : FichaUiState
-    data class Success(val rotinas: List<RotinaComExercicios>) : FichaUiState
-    data class Error(val message: String) : FichaUiState
+sealed class FichaUiState {
+    object Loading : FichaUiState()
+    data class Success(val rotinas: List<RotinaResponseDTO>) : FichaUiState()
+    data class Error(val message: String) : FichaUiState()
 }

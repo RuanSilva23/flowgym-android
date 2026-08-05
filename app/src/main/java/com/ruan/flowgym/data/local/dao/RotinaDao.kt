@@ -22,13 +22,14 @@ interface RotinaDao {
         inserirItensFicha(itens)
     }
 
+
     @Transaction
     @Query("SELECT * FROM rotinas WHERE usuarioId = :usuarioId ORDER BY nome ASC")
     fun listarRotinasPorUsuario(usuarioId: Long): Flow<List<RotinaComExercicios>>
 
     @Transaction
     @Query("SELECT * FROM rotinas WHERE id = :rotinaId")
-    fun buscarRotinaPorId(rotinaId: Long): Flow<RotinaComExercicios?>
+    suspend fun buscarRotinaPorId(rotinaId: Long): RotinaComExercicios?
 
     @Query("DELETE FROM rotinas WHERE id = :rotinaId")
     suspend fun deletarRotina(rotinaId: Long)

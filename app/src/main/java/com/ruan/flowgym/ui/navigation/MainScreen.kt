@@ -19,6 +19,9 @@ import com.ruan.flowgym.ui.viewmodel.*
 fun MainScreen() {
     val navController = rememberNavController()
 
+    // 👈 HOISTING: ViewModel compartilhado no nível da MainScreen
+    val treinoViewModel: TreinoAtivoViewModel = hiltViewModel()
+
     val items = listOf(
         BottomNavItem.Home,
         BottomNavItem.TreinoAtivo,
@@ -75,9 +78,8 @@ fun MainScreen() {
 
             // 2. Treino Ativo
             composable(BottomNavItem.TreinoAtivo.route) {
-                val treinoViewModel: TreinoAtivoViewModel = hiltViewModel()
                 TreinoAtivoScreen(
-                    viewModel = treinoViewModel,
+                    viewModel = treinoViewModel, // 👈 Usa a instância compartilhada
                     idUsuario = 1L
                 )
             }
@@ -103,8 +105,21 @@ fun MainScreen() {
                 val fichaViewModel: FichaViewModel = hiltViewModel()
                 FichasScreen(
                     viewModel = fichaViewModel,
-                    onRotinaClick = { rotinaId ->
-                        // Navegação para detalhe da rotina
+                    onRotinaClick = { idRotina ->
+                        // 1. Abre a sessão de treino no Spring Boot e carrega os exercícios no ViewModel
+                        treinoViewModel.iniciarTreinoComRotina(
+                            idUsuario = 1L,
+                            idRotina = idRotina
+                        )
+
+                        // 2. Alterna para a aba do Treino Ativo
+                        navController.navigate(BottomNavItem.TreinoAtivo.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
                 )
             }

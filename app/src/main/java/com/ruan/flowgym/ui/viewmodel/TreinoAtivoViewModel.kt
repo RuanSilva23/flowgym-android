@@ -2,7 +2,9 @@ package com.ruan.flowgym.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ruan.flowgym.data.local.entity.ExercicioEntity
+import com.ruan.flowgym.data.local.dao.RotinaDao
+import com.ruan.flowgym.data.local.model.RotinaComExercicios
+import com.ruan.flowgym.data.mapper.toEntity
 import com.ruan.flowgym.data.model.NovaSerieRequestDTO
 import com.ruan.flowgym.data.model.SerieTreinoResponseDTO
 import com.ruan.flowgym.data.model.SessaoTreinoResponseDTO
@@ -12,10 +14,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -24,28 +24,22 @@ sealed interface TreinoUiState {
     object Loading : TreinoUiState
     data class Sucesso(
         val sessao: SessaoTreinoResponseDTO,
+        val rotinaAtiva: RotinaComExercicios? = null,
         val series: List<SerieTreinoResponseDTO> = emptyList()
     ) : TreinoUiState
     data class Erro(val mensagem: String) : TreinoUiState
 }
-@HiltViewModel // 👈 ADICIONADO
-class TreinoAtivoViewModel @Inject constructor( // 👈 @Inject ADICIONADO E REMOVIDO VALOR DEFAULT
+
+@HiltViewModel
+class TreinoAtivoViewModel @Inject constructor(
+    private val rotinaDao: RotinaDao,
     private val exercicioRepository: ExercicioRepository,
     private val api: TreinoApiService
-) : ViewModel(){
-
-    // Lista de Exercícios consumida diretamente do Room (carregamento instantâneo offline)
-    val exercicios: StateFlow<List<ExercicioEntity>> = exercicioRepository.todosExercicios
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow<TreinoUiState>(TreinoUiState.Idle)
     val uiState: StateFlow<TreinoUiState> = _uiState.asStateFlow()
 
-    // Estados do Timer de Descanso
     private var timerJob: Job? = null
 
     private val _tempoRestante = MutableStateFlow(0)
@@ -54,26 +48,38 @@ class TreinoAtivoViewModel @Inject constructor( // 👈 @Inject ADICIONADO E REM
     private val _tempoTotalDescanso = MutableStateFlow(60)
     val tempoTotalDescanso: StateFlow<Int> = _tempoTotalDescanso.asStateFlow()
 
-    init {
-        // Tenta atualizar o Room com os dados mais recentes do backend em background
-        sincronizarExercicios()
-    }
-
-    fun sincronizarExercicios() {
-        viewModelScope.launch {
-            exercicioRepository.sincronizarExercicios()
-        }
-    }
-
-    fun iniciarTreino(idUsuario: Long) {
+    fun iniciarTreinoComRotina(idUsuario: Long, idRotina: Long) {
         viewModelScope.launch {
             _uiState.value = TreinoUiState.Loading
             try {
-                val response = api.iniciarSessao(idUsuario)
-                if (response.isSuccessful && response.body() != null) {
-                    _uiState.value = TreinoUiState.Sucesso(sessao = response.body()!!)
+                // 1. Tenta buscar a ficha no Room local
+                var rotinaComExercicios = rotinaDao.buscarRotinaPorId(idRotina)
+
+                // 2. Se a ficha não existir no Room local, busca na API e grava no Room
+                if (rotinaComExercicios == null) {
+                    exercicioRepository.sincronizarExercicios(idUsuario)
+                    val responseRotina = api.buscarRotinaPorId(idRotina)
+                    if (responseRotina.isSuccessful && responseRotina.body() != null) {
+                        val rotinaDto = responseRotina.body()!!
+                        val rotinaEntity = rotinaDto.toEntity(idUsuario)
+                        val itensEntities = rotinaDto.exercicios.map { itemDto ->
+                            itemDto.toEntity(rotinaId = rotinaDto.id)
+                        }
+                        rotinaDao.salvarFichaCompleta(rotinaEntity, itensEntities)
+                        rotinaComExercicios = rotinaDao.buscarRotinaPorId(idRotina)
+                    }
+                }
+
+                // 3. Abre a sessão de treino no backend
+                val responseSessao = api.iniciarSessao(idUsuario = idUsuario, idRotina = idRotina)
+
+                if (responseSessao.isSuccessful && responseSessao.body() != null) {
+                    _uiState.value = TreinoUiState.Sucesso(
+                        sessao = responseSessao.body()!!,
+                        rotinaAtiva = rotinaComExercicios
+                    )
                 } else {
-                    _uiState.value = TreinoUiState.Erro("Erro ao iniciar sessão: ${response.code()}")
+                    _uiState.value = TreinoUiState.Erro("Erro ao iniciar sessão no servidor: ${responseSessao.code()}")
                 }
             } catch (e: Exception) {
                 _uiState.value = TreinoUiState.Erro("Falha de conexão: ${e.localizedMessage}")
@@ -86,7 +92,8 @@ class TreinoAtivoViewModel @Inject constructor( // 👈 @Inject ADICIONADO E REM
         idExercicio: Long,
         carga: Double,
         repeticoes: Int,
-        nomeExercicio: String = "Exercício"
+        nomeExercicio: String = "Exercício",
+        tempoDescansoAlvo: Int = 60
     ) {
         viewModelScope.launch {
             val currentState = _uiState.value
@@ -98,7 +105,6 @@ class TreinoAtivoViewModel @Inject constructor( // 👈 @Inject ADICIONADO E REM
                     if (response.isSuccessful && response.body() != null) {
                         val serieBackend = response.body()!!
 
-                        // Trata tipos não-nulos e substitui fallbacks do backend se necessário
                         val idExercicioFinal = if (serieBackend.idExercicio == 0L) idExercicio else serieBackend.idExercicio
                         val nomeExercicioFinal = if (serieBackend.nomeExercicio.isBlank() || serieBackend.nomeExercicio == "Exercício") {
                             nomeExercicio
@@ -114,10 +120,10 @@ class TreinoAtivoViewModel @Inject constructor( // 👈 @Inject ADICIONADO E REM
                         val listaAtualizada = currentState.series + novaSerie
                         _uiState.value = currentState.copy(series = listaAtualizada)
 
-                        iniciarTimerDescanso(60)
+                        iniciarTimerDescanso(if (tempoDescansoAlvo > 0) tempoDescansoAlvo else 60)
                     }
                 } catch (e: Exception) {
-                    // Tratar erro de conexão
+                    // Tratar exceções se necessário
                 }
             }
         }
