@@ -3,7 +3,6 @@ package com.ruan.flowgym.ui.screens
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -25,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ruan.flowgym.data.model.SessaoTreinoResponseDTO
+import com.ruan.flowgym.ui.screens.components.CardEvolucaoPeso
 import com.ruan.flowgym.ui.viewmodel.HomeUiState
 import com.ruan.flowgym.ui.viewmodel.HomeViewModel
 import java.util.Calendar
@@ -127,6 +127,27 @@ fun HomeScreen(
                             CardMotivacionalDiario()
                         }
 
+                        // Dentro da LazyColumn da HomeScreen.kt:
+
+                        item {
+                            CardEvolucaoPeso(
+                                pesoAtual = state.pesoAtual, // Ex: vindo do HomeUiState
+                                pesoMeta = state.pesoMeta,
+                                historicoPeso = state.historicoPeso,
+                                onRegistrarNovoPeso = { novoPeso ->
+                                    homeViewModel.registrarNovoPeso(idUsuario, novoPeso)
+                                },
+                                onAtualizarMeta = { novaMeta ->
+                                    homeViewModel.atualizarMetaPeso(idUsuario, novaMeta)
+                                }
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
+
+
+
+
+
                         // 3. Banner para Iniciar Treino
                         item {
                             CardNovoTreino(onIniciarClick = onIniciarTreinoClick)
@@ -227,7 +248,8 @@ fun CardMotivacionalDiario() {
             "Não conte os dias, faça os dias contarem.",
             "Sua única competição é quem você foi ontem.",
             "Pequenos progressos diários resultam em grandes conquistas.",
-            "A disciplina te leva aonde a motivação não consegue chegar."
+            "A disciplina te leva aonde a motivação não consegue chegar.",
+            "Sem Dor, Sem Ganhos(NO PAIN, NO GAIN)"
         )
     }
 
