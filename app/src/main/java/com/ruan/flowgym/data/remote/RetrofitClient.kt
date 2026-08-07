@@ -1,19 +1,28 @@
 package com.ruan.flowgym.data.remote
 
 import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
 
-    private const val BASE_URL = "http://127.0.0.1:8080/"
+    // 💡 Se estiver no Wi-Fi local, use o IP da sua máquina (ex: 192.168.31.161)
+    // 💡 Se estiver no cabo USB com 'adb reverse tcp:8080 tcp:8080', altere para: "http://127.0.0.1:8080/"
+    private const val BASE_URL = "http://192.168.31.161:8080/"
 
-    // 👈 Timeout curto (3s) para chavear para o modo offline sem travar o app
+    // 1. Interceptor de Log
+    private val loggingInterceptor = HttpLoggingInterceptor().apply {
+        level = HttpLoggingInterceptor.Level.BODY
+    }
+
+    // 2. OkHttpClient com Logging e Timeout adequado para Wi-Fi (10s)
     private val okHttpClient = OkHttpClient.Builder()
-        .connectTimeout(3, TimeUnit.SECONDS)
-        .readTimeout(3, TimeUnit.SECONDS)
-        .writeTimeout(3, TimeUnit.SECONDS)
+        .addInterceptor(loggingInterceptor) // 👈 Agora o log está vinculado!
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
+        .writeTimeout(10, TimeUnit.SECONDS)
         .build()
 
     val apiService: TreinoApiService by lazy {

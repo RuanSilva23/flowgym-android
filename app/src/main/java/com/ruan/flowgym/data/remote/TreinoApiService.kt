@@ -3,9 +3,12 @@ package com.ruan.flowgym.data.remote
 import com.ruan.flowgym.data.model.CriarFichaRequestDTO
 import com.ruan.flowgym.data.model.ExercicioResponseDTO
 import com.ruan.flowgym.data.model.NovaSerieRequestDTO
+import com.ruan.flowgym.data.model.PesoRequestDTO
+import com.ruan.flowgym.data.model.PesoResponseDTO
 import com.ruan.flowgym.data.model.RotinaResponseDTO
 import com.ruan.flowgym.data.model.SerieTreinoResponseDTO
 import com.ruan.flowgym.data.model.SessaoTreinoResponseDTO
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -84,4 +87,25 @@ interface TreinoApiService {
     suspend fun deletarFicha(
         @Path("id") idFicha: Long
     ): Response<Void>
+
+    // === PESOS (HistoricoPesoController) ===
+
+    // Registra o Peso
+    @POST("api/usuario/historicopeso/cadastro/{id}")
+    suspend fun cadastrarPeso(
+        @Path("id") idUsuario: Long,
+        @Body dto: PesoRequestDTO
+    ): Response<ResponseBody>
+
+    // Buscar o Peso Atual
+    @GET("api/usuario/historicopeso/pesoatual/{idUsuario}")
+    suspend fun buscarPesoAtual(
+        @Path("idUsuario") idUsuario: Long
+    ): Response<PesoResponseDTO>
+
+    // Buscar o Historico de Registros dos Pesos
+    @GET("api/usuario/historicopeso/historicopeso/{idUsuario}")
+    suspend fun buscarHistoricoPeso(
+        @Path("idUsuario") idUsuario: Long
+    ): Response<List<PesoResponseDTO>>
 }

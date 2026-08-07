@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.ruan.flowgym.data.local.AppDatabase
 import com.ruan.flowgym.data.local.dao.ExercicioDao
+import com.ruan.flowgym.data.local.dao.PesoDao
 import com.ruan.flowgym.data.local.dao.RotinaDao
 import com.ruan.flowgym.data.local.dao.SessaoPendenteDao
 import com.ruan.flowgym.data.remote.RetrofitClient
@@ -54,6 +55,12 @@ object DataModule {
 
     @Provides
     fun provideSessaoPendenteDao(database: AppDatabase): SessaoPendenteDao = database.sessaoPendenteDao()
+
+    @Provides
+    @Singleton
+    fun providePesoDao(database: AppDatabase): PesoDao {
+        return database.pesoDao()
+    }
 }
 
 @Module
