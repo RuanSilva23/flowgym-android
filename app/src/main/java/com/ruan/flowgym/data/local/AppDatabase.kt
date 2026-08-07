@@ -6,15 +6,20 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.ruan.flowgym.data.local.dao.ExercicioDao
 import com.ruan.flowgym.data.local.dao.RotinaDao
+import com.ruan.flowgym.data.local.dao.SessaoPendenteDao
 import com.ruan.flowgym.data.local.entity.ExercicioEntity
 import com.ruan.flowgym.data.local.entity.FichaExercicioEntity
 import com.ruan.flowgym.data.local.entity.RotinaEntity
+import com.ruan.flowgym.data.local.entity.SeriePendenteEntity
+import com.ruan.flowgym.data.local.entity.SessaoPendenteEntity
 
 @Database(
     entities = [
         ExercicioEntity::class,
         RotinaEntity::class,
-        FichaExercicioEntity::class
+        FichaExercicioEntity::class,
+        SessaoPendenteEntity::class,
+        SeriePendenteEntity::class
     ],
     version = 3,
     exportSchema = false
@@ -23,6 +28,8 @@ abstract class AppDatabase : RoomDatabase() {
 
     abstract fun exercicioDao(): ExercicioDao
     abstract fun rotinaDao(): RotinaDao
+
+    abstract fun sessaoPendenteDao(): SessaoPendenteDao
 
     companion object {
         @Volatile

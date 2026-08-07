@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -26,6 +27,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ruan.flowgym.data.model.SessaoTreinoResponseDTO
 import com.ruan.flowgym.ui.viewmodel.HomeUiState
 import com.ruan.flowgym.ui.viewmodel.HomeViewModel
+import java.util.Calendar
 
 @Composable
 fun HomeScreen(
@@ -35,6 +37,7 @@ fun HomeScreen(
     onIniciarTreinoClick: () -> Unit = {}
 ) {
     val uiState by homeViewModel.uiState.collectAsState()
+    var exibirModalHistoricoCompleto by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         homeViewModel.carregarDadosHome(idUsuario)
@@ -74,6 +77,8 @@ fun HomeScreen(
 
                 is HomeUiState.Sucesso -> {
                     val sessoes = state.historicoSessoes
+                    // 👈 LIMITE DE 5 TREINOS NO DASHBOARD
+                    val ultimasSessoes = sessoes.take(5)
 
                     LazyColumn(
                         modifier = Modifier
@@ -82,7 +87,7 @@ fun HomeScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp)
                     ) {
-                        // Header
+                        // 1. Header de Saudação
                         item {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -117,22 +122,28 @@ fun HomeScreen(
                             }
                         }
 
-                        // Banner para Novo Treino
+                        // 2. 👈 NOVO: Card Motivacional Diário
+                        item {
+                            CardMotivacionalDiario()
+                        }
+
+                        // 3. Banner para Iniciar Treino
                         item {
                             CardNovoTreino(onIniciarClick = onIniciarTreinoClick)
                         }
 
-                        // Cabeçalho de Histórico
+                        // 4. Cabeçalho de Histórico
                         item {
                             Text(
-                                text = "Histórico de Treinos (${sessoes.size})",
+                                text = "Últimos Treinos",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                         }
 
-                        if (sessoes.isEmpty()) {
+                        // 5. Lista de no máximo 5 treinos
+                        if (ultimasSessoes.isEmpty()) {
                             item {
                                 Text(
                                     text = "Nenhum treino realizado ainda.",
@@ -141,7 +152,7 @@ fun HomeScreen(
                                 )
                             }
                         } else {
-                            items(sessoes) { sessao ->
+                            items(ultimasSessoes) { sessao ->
                                 ItemSessaoHistorico(
                                     sessao = sessao,
                                     onDeletarSessao = { idSessao ->
@@ -149,9 +160,113 @@ fun HomeScreen(
                                     }
                                 )
                             }
+
+                            // 6. 👈 Botão "Ver Mais" quando houver mais de 5 treinos
+                            if (sessoes.size > 5) {
+                                item {
+                                    OutlinedButton(
+                                        onClick = { exibirModalHistoricoCompleto = true },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 4.dp),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text(
+                                            text = "Ver histórico completo (${sessoes.size} treinos)",
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
+
+                    // Modal de Histórico Completo
+                    if (exibirModalHistoricoCompleto) {
+                        AlertDialog(
+                            onDismissRequest = { exibirModalHistoricoCompleto = false },
+                            title = { Text("Histórico Completo", fontWeight = FontWeight.Bold) },
+                            text = {
+                                Box(modifier = Modifier.heightIn(max = 400.dp)) {
+                                    LazyColumn(
+                                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        items(sessoes) { sessao ->
+                                            ItemSessaoHistorico(
+                                                sessao = sessao,
+                                                onDeletarSessao = { idSessao ->
+                                                    homeViewModel.deletarSessao(idSessao, idUsuario)
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            },
+                            confirmButton = {
+                                TextButton(onClick = { exibirModalHistoricoCompleto = false }) {
+                                    Text("Fechar")
+                                }
+                            }
+                        )
+                    }
                 }
+            }
+        }
+    }
+}
+
+// 👈 COMPONENTE: Card Motivacional com Mensagens Diárias
+@Composable
+fun CardMotivacionalDiario() {
+    val frasesMotivacionais = remember {
+        listOf(
+            "O único treino ruim é aquele que não aconteceu.",
+            "Consistência vence o talento quando o talento não tem consistência.",
+            "Cada repetição te deixa mais perto do seu objetivo.",
+            "A dor do treino é temporária, mas o orgulho é para sempre.",
+            "Não conte os dias, faça os dias contarem.",
+            "Sua única competição é quem você foi ontem.",
+            "Pequenos progressos diários resultam em grandes conquistas.",
+            "A disciplina te leva aonde a motivação não consegue chegar."
+        )
+    }
+
+    // Calcula o índice com base no dia do ano (troca automaticamente à meia-noite)
+    val diaDoAno = remember { Calendar.getInstance().get(Calendar.DAY_OF_YEAR) }
+    val fraseHoje = frasesMotivacionais[diaDoAno % frasesMotivacionais.size]
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.EmojiEvents,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(28.dp)
+            )
+            Column {
+                Text(
+                    text = "MOTIVAÇÃO DO DIA",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "\"$fraseHoje\"",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
             }
         }
     }
@@ -185,7 +300,7 @@ fun CardNovoTreino(onIniciarClick: () -> Unit) {
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Iniciar Nova Sessão",
+                text = "Iniciar Sessão de Treino",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Black,
                 color = MaterialTheme.colorScheme.onSurface
@@ -251,21 +366,12 @@ fun ItemSessaoHistorico(
                     )
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { exibirDialogExclusao = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Excluir Treino",
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                    }
-
-                    Icon(
-                        imageVector = if (expandido) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = if (expandido) "Recolher" else "Expandir",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                // 👈 Ícone de seta simples (Lixeira removida do topo)
+                Icon(
+                    imageVector = if (expandido) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (expandido) "Recolher" else "Expandir",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             AnimatedVisibility(visible = expandido) {
@@ -304,6 +410,28 @@ fun ItemSessaoHistorico(
                                 )
                             }
                             Spacer(modifier = Modifier.height(4.dp))
+                        }
+                    }
+
+                    // 👈 LIXEIRA VISÍVEL APENAS QUANDO O CARD É EXPANDIDO
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(
+                            onClick = { exibirDialogExclusao = true },
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Excluir este treino", fontWeight = FontWeight.Bold)
                         }
                     }
                 }

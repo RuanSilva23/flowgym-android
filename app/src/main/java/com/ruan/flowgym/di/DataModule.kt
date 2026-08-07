@@ -1,9 +1,11 @@
 package com.ruan.flowgym.di
 
 import android.content.Context
+import androidx.room.Room
 import com.ruan.flowgym.data.local.AppDatabase
 import com.ruan.flowgym.data.local.dao.ExercicioDao
 import com.ruan.flowgym.data.local.dao.RotinaDao
+import com.ruan.flowgym.data.local.dao.SessaoPendenteDao
 import com.ruan.flowgym.data.remote.RetrofitClient
 import com.ruan.flowgym.data.remote.TreinoApiService
 import com.ruan.flowgym.data.repository.ExercicioRepository
@@ -24,7 +26,13 @@ object DataModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
-        return AppDatabase.getDatabase(context)
+        return Room.databaseBuilder(
+            context.applicationContext,
+            AppDatabase::class.java,
+            "flowgym_database"
+        )
+            .fallbackToDestructiveMigration() // 👈 Recria o banco se a versão/schema mudar
+            .build()
     }
 
     @Provides
@@ -43,6 +51,9 @@ object DataModule {
         dao: ExercicioDao,
         api: TreinoApiService
     ): ExercicioRepository = ExercicioRepository(dao, api)
+
+    @Provides
+    fun provideSessaoPendenteDao(database: AppDatabase): SessaoPendenteDao = database.sessaoPendenteDao()
 }
 
 @Module
