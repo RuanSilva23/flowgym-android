@@ -2,6 +2,7 @@ package com.ruan.flowgym.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ruan.flowgym.data.model.SessaoTreinoResponseDTO
 import com.ruan.flowgym.ui.viewmodel.HomeUiState
 import com.ruan.flowgym.ui.viewmodel.HomeViewModel
@@ -33,7 +33,7 @@ import java.util.Calendar
 fun HomeScreen(
     nomeUsuario: String = "Ruan",
     idUsuario: Long = 1L,
-    homeViewModel: HomeViewModel = viewModel(),
+    homeViewModel: HomeViewModel = hiltViewModel(),
     onIniciarTreinoClick: () -> Unit = {}
 ) {
     val uiState by homeViewModel.uiState.collectAsState()
@@ -337,9 +337,8 @@ fun ItemSessaoHistorico(
     val listaSeries = sessao.series.orEmpty()
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { expandido = !expandido },
+        onClick = { expandido = !expandido }, // 👈 Usar o onClick nativo do Card (Material 3)
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
@@ -366,7 +365,6 @@ fun ItemSessaoHistorico(
                     )
                 }
 
-                // 👈 Ícone de seta simples (Lixeira removida do topo)
                 Icon(
                     imageVector = if (expandido) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                     contentDescription = if (expandido) "Recolher" else "Expandir",
@@ -413,7 +411,6 @@ fun ItemSessaoHistorico(
                         }
                     }
 
-                    // 👈 LIXEIRA VISÍVEL APENAS QUANDO O CARD É EXPANDIDO
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),

@@ -48,6 +48,7 @@ tasks.withType<KotlinCompile>().configureEach {
 }
 
 dependencies {
+    implementation(libs.androidx.compose.animation)
     // Core & Jetpack Compose
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
