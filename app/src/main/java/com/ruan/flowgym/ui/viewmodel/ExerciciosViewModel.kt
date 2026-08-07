@@ -3,12 +3,12 @@ package com.ruan.flowgym.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ruan.flowgym.data.model.ExercicioResponseDTO
-import com.ruan.flowgym.data.remote.RetrofitClient
-import com.ruan.flowgym.data.remote.TreinoApiService
+import com.ruan.flowgym.data.repository.ExercicioRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -20,13 +20,11 @@ sealed interface ExerciciosUiState {
     ) : ExerciciosUiState
     data class Erro(val mensagem: String) : ExerciciosUiState
 }
+
 @HiltViewModel
 class ExerciciosViewModel @Inject constructor(
-    private val api: TreinoApiService
+    private val exercicioRepository: ExercicioRepository
 ) : ViewModel() {
-
-    private val _uiState = MutableStateFlow<ExerciciosUiState>(ExerciciosUiState.Loading)
-    val uiState: StateFlow<ExerciciosUiState> = _uiState.asStateFlow()
 
     private val _grupoSelecionado = MutableStateFlow("TODOS")
     val grupoSelecionado: StateFlow<String> = _grupoSelecionado.asStateFlow()
@@ -34,53 +32,67 @@ class ExerciciosViewModel @Inject constructor(
     private val _buscaQuery = MutableStateFlow("")
     val buscaQuery: StateFlow<String> = _buscaQuery.asStateFlow()
 
-    fun carregarExercicios(idUsuario: Long = 1L) {
+    private val _uiState = MutableStateFlow<ExerciciosUiState>(ExerciciosUiState.Loading)
+    val uiState: StateFlow<ExerciciosUiState> = _uiState.asStateFlow()
+
+    init {
+        observarExerciciosLocais()
+        carregarExercicios(idUsuario = 1L)
+    }
+
+    // 👈 Observa o Room em tempo real. Se estiver offline, entrega os dados locais instantaneamente.
+    private fun observarExerciciosLocais() {
         viewModelScope.launch {
-            _uiState.value = ExerciciosUiState.Loading
-            try {
-                val grupo = _grupoSelecionado.value
-                val response = if (grupo == "TODOS") {
-                    RetrofitClient.apiService.listarExercicios(idUsuario)
-                } else {
-                    RetrofitClient.apiService.listarPorGrupoMuscular(grupo)
+            combine(
+                exercicioRepository.todosExercicios,
+                _grupoSelecionado,
+                _buscaQuery
+            ) { listaEntities, grupo, query ->
+                val listaDtos = listaEntities.map { entity ->
+                    ExercicioResponseDTO(
+                        id = entity.id,
+                        nome = entity.nome,
+                        grupoMuscular = entity.grupoMuscular
+                    )
                 }
 
-                if (response.isSuccessful) {
-                    val lista = response.body() ?: emptyList()
-                    val filtrada = aplicarFiltroBusca(lista, _buscaQuery.value)
-                    _uiState.value = ExerciciosUiState.Sucesso(
-                        exercicios = lista,
-                        exerciciosFiltrados = filtrada
-                    )
+                val filtradosPorGrupo = if (grupo == "TODOS") {
+                    listaDtos
                 } else {
-                    _uiState.value = ExerciciosUiState.Erro("Erro ao carregar exercícios (${response.code()})")
+                    listaDtos.filter { it.grupoMuscular.equals(grupo, ignoreCase = true) }
                 }
-            } catch (e: Exception) {
-                _uiState.value = ExerciciosUiState.Erro(e.localizedMessage ?: "Erro de conexão")
+
+                val filtradosFinais = if (query.isBlank()) {
+                    filtradosPorGrupo
+                } else {
+                    filtradosPorGrupo.filter {
+                        it.nome.contains(query, ignoreCase = true) ||
+                                it.grupoMuscular.contains(query, ignoreCase = true)
+                    }
+                }
+
+                ExerciciosUiState.Sucesso(
+                    exercicios = listaDtos,
+                    exerciciosFiltrados = filtradosFinais
+                )
+            }.collect { state ->
+                _uiState.value = state
             }
+        }
+    }
+
+    fun carregarExercicios(idUsuario: Long = 1L) {
+        viewModelScope.launch {
+            // Tenta sincronizar com o backend em segundo plano
+            exercicioRepository.sincronizarExercicios(idUsuario)
         }
     }
 
     fun selecionarGrupo(grupo: String, idUsuario: Long = 1L) {
         _grupoSelecionado.value = grupo
-        carregarExercicios(idUsuario)
     }
 
     fun onBuscaQueryChange(query: String) {
         _buscaQuery.value = query
-        val currentState = _uiState.value
-        if (currentState is ExerciciosUiState.Sucesso) {
-            val filtrada = aplicarFiltroBusca(currentState.exercicios, query)
-            _uiState.value = currentState.copy(exerciciosFiltrados = filtrada)
-        }
-    }
-
-    private fun aplicarFiltroBusca(lista: List<ExercicioResponseDTO>, query: String): List<ExercicioResponseDTO> {
-        if (query.isBlank()) return lista
-        return lista.filter { exercicio ->
-            val nomeOk = exercicio.nome?.contains(query, ignoreCase = true) == true
-            val grupoOk = exercicio.grupoMuscular?.contains(query, ignoreCase = true) == true
-            nomeOk || grupoOk
-        }
     }
 }
