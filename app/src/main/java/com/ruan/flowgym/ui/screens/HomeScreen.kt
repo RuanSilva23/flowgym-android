@@ -33,14 +33,14 @@ import java.util.Calendar
 fun HomeScreen(
     nomeUsuario: String = "Ruan",
     idUsuario: Long = 1L,
-    homeViewModel: HomeViewModel = hiltViewModel(),
+    viewModel: HomeViewModel = hiltViewModel(),
     onIniciarTreinoClick: () -> Unit = {}
 ) {
-    val uiState by homeViewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
     var exibirModalHistoricoCompleto by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        homeViewModel.carregarDadosHome(idUsuario)
+        viewModel.carregarDadosHome(idUsuario)
     }
 
     Scaffold(
@@ -69,7 +69,7 @@ fun HomeScreen(
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { homeViewModel.carregarDadosHome(idUsuario) }) {
+                        Button(onClick = { viewModel.carregarDadosHome(idUsuario) }) {
                             Text("Tentar Novamente")
                         }
                     }
@@ -135,10 +135,10 @@ fun HomeScreen(
                                 pesoMeta = state.pesoMeta,
                                 historicoPeso = state.historicoPeso,
                                 onRegistrarNovoPeso = { novoPeso ->
-                                    homeViewModel.registrarNovoPeso(idUsuario, novoPeso)
+                                    viewModel.registrarNovoPeso(idUsuario, novoPeso)
                                 },
                                 onAtualizarMeta = { novaMeta ->
-                                    homeViewModel.atualizarMetaPeso(idUsuario, novaMeta)
+                                    viewModel.atualizarMetaPeso(idUsuario, novaMeta)
                                 }
                             )
                             Spacer(modifier = Modifier.height(16.dp))
@@ -177,7 +177,7 @@ fun HomeScreen(
                                 ItemSessaoHistorico(
                                     sessao = sessao,
                                     onDeletarSessao = { idSessao ->
-                                        homeViewModel.deletarSessao(idSessao, idUsuario)
+                                        viewModel.deletarSessao(idSessao, idUsuario)
                                     }
                                 )
                             }
@@ -216,7 +216,7 @@ fun HomeScreen(
                                             ItemSessaoHistorico(
                                                 sessao = sessao,
                                                 onDeletarSessao = { idSessao ->
-                                                    homeViewModel.deletarSessao(idSessao, idUsuario)
+                                                    viewModel.deletarSessao(idSessao, idUsuario)
                                                 }
                                             )
                                         }

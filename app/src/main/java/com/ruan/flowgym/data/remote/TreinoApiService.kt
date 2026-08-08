@@ -2,17 +2,28 @@ package com.ruan.flowgym.data.remote
 
 import com.ruan.flowgym.data.model.CriarFichaRequestDTO
 import com.ruan.flowgym.data.model.ExercicioResponseDTO
+import com.ruan.flowgym.data.model.LoginDTO
 import com.ruan.flowgym.data.model.NovaSerieRequestDTO
 import com.ruan.flowgym.data.model.PesoRequestDTO
 import com.ruan.flowgym.data.model.PesoResponseDTO
 import com.ruan.flowgym.data.model.RotinaResponseDTO
 import com.ruan.flowgym.data.model.SerieTreinoResponseDTO
 import com.ruan.flowgym.data.model.SessaoTreinoResponseDTO
+import com.ruan.flowgym.data.model.TokenDTO
+import com.ruan.flowgym.data.model.UsuarioDTO
 import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.*
 
 interface TreinoApiService {
+
+    // Login e Cadastro de Usuario
+    @POST("api/auth/login")
+    suspend fun login(@Body dto: LoginDTO): Response<TokenDTO>
+
+    @POST("api/usuario/cadastrar")
+    suspend fun cadastrarUsuario(@Body dto: UsuarioDTO): Response<Void>
+
 
     // === SESSÃO DE TREINO (SessaoTreinoController) ===
 

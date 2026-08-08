@@ -3,6 +3,7 @@ package com.ruan.flowgym.ui.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ruan.flowgym.data.local.SessionManager
 import com.ruan.flowgym.data.local.dao.PesoDao
 import com.ruan.flowgym.data.local.dao.SessaoPendenteDao
 import com.ruan.flowgym.data.local.entity.PesoEntity
@@ -11,6 +12,7 @@ import com.ruan.flowgym.data.model.PesoRequestDTO
 import com.ruan.flowgym.data.model.PesoResponseDTO
 import com.ruan.flowgym.data.model.SerieTreinoResponseDTO
 import com.ruan.flowgym.data.model.SessaoTreinoResponseDTO
+import com.ruan.flowgym.data.remote.RetrofitClient
 import com.ruan.flowgym.data.remote.TreinoApiService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,13 +39,22 @@ sealed class HomeUiState {
 class HomeViewModel @Inject constructor(
     private val api: TreinoApiService,
     private val sessaoPendenteDao: SessaoPendenteDao,
-    private val pesoDao: PesoDao
+    private val pesoDao: PesoDao,
+    private val sessionManager: SessionManager // 👈 Injetado para gerenciar sessão e token
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val uiState: StateFlow<HomeUiState> = _uiState
 
-    fun carregarDadosHome(idUsuario: Long = 1L) {
+    init {
+        // 💡 Garante que o Token JWT esteja carregado no Retrofit antes de qualquer chamada
+        val tokenSalvo = sessionManager.obterToken()
+        if (!tokenSalvo.isNullOrEmpty()) {
+            RetrofitClient.userToken = tokenSalvo
+        }
+    }
+
+    fun carregarDadosHome(idUsuario: Long = sessionManager.obterUserId()) {
         viewModelScope.launch {
             _uiState.value = HomeUiState.Loading
 
@@ -59,10 +70,12 @@ class HomeViewModel @Inject constructor(
                     val resp = api.cadastrarPeso(idUsuario, dto)
                     if (resp.isSuccessful) {
                         pesoDao.deletarPesoPendente(pesoPendente.idLocal)
+                    } else {
+                        Log.e("SYNC_PESO", "Erro HTTP ${resp.code()}: ${resp.errorBody()?.string()}")
                     }
                 }
             } catch (e: Exception) {
-                Log.e("SYNC_PESO", "Servidor offline durante sincronização de peso.")
+                Log.e("SYNC_PESO", "Falha de conexão ao sincronizar peso: ${e.localizedMessage}")
             }
 
             // 2. SINCRONIZA TREINOS PENDENTES COM O BACKEND
@@ -87,9 +100,14 @@ class HomeViewModel @Inject constructor(
                         api.finalizarSessao(idSessaoServidor)
                         sessaoPendenteDao.deletarSeriesDaSessao(sessao.idLocal)
                         sessaoPendenteDao.deletarSessaoPendente(sessao.idLocal)
+                        Log.d("SYNC_TREINO", "Sessão local ID ${sessao.idLocal} sincronizada no servidor!")
+                    } else {
+                        Log.e("SYNC_TREINO", "Erro HTTP ${respSessao.code()}: ${respSessao.errorBody()?.string()}")
                     }
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                Log.e("SYNC_TREINO", "Falha ao sincronizar treino pendente: ${e.localizedMessage}")
+            }
 
             // 3. BUSCA HISTÓRICO DE PESOS (SERVIDOR + ROOM LOCAL)
             var listaPesoServidor: List<PesoResponseDTO> = emptyList()
@@ -98,10 +116,13 @@ class HomeViewModel @Inject constructor(
                 val respHistoricoPeso = api.buscarHistoricoPeso(idUsuario)
                 if (respHistoricoPeso.isSuccessful) {
                     listaPesoServidor = respHistoricoPeso.body().orEmpty()
+                } else {
+                    Log.e("API_PESO", "Erro ao buscar pesos: ${respHistoricoPeso.code()}")
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                Log.e("API_PESO", "Erro de conexão ao buscar pesos: ${e.localizedMessage}")
+            }
 
-            // Busca os pesos salvos localmente no Room
             val pesosLocais = try {
                 pesoDao.listarPesosPendentes(idUsuario).map { entity ->
                     PesoResponseDTO(
@@ -114,7 +135,6 @@ class HomeViewModel @Inject constructor(
                 emptyList()
             }
 
-            // Unifica os registros (Servidor + Locais)
             val historicoPesoCompleto = listaPesoServidor + pesosLocais
             val pesoAtualCalculado = historicoPesoCompleto.lastOrNull()?.pesoCorporal
 
@@ -124,8 +144,12 @@ class HomeViewModel @Inject constructor(
                 val response = api.buscarHistoricoSessoes(idUsuario)
                 if (response.isSuccessful) {
                     sessoesServidor = response.body().orEmpty()
+                } else {
+                    Log.e("API_TREINO", "Erro ao buscar histórico de treinos: ${response.code()}")
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                Log.e("API_TREINO", "Erro de conexão ao buscar histórico de treinos: ${e.localizedMessage}")
+            }
 
             val pendentesLocais = try {
                 sessaoPendenteDao.listarSessoesPendentes().map { p ->
@@ -159,8 +183,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    // REGISTRA NO ROOM E TENTA ENVIAR AO BACKEND
-    fun registrarNovoPeso(idUsuario: Long, novoPeso: Double) {
+    fun registrarNovoPeso(idUsuario: Long = sessionManager.obterUserId(), novoPeso: Double) {
         viewModelScope.launch {
             val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
             val dataAtual = formatter.format(Date())
@@ -182,20 +205,20 @@ class HomeViewModel @Inject constructor(
 
                 val response = api.cadastrarPeso(idUsuario, dto)
                 if (response.isSuccessful) {
-                    Log.d("PESO_API", "Sucesso ao cadastrar no servidor. Removendo pendência ID: $idLocalGerado")
+                    Log.d("PESO_API", "Sucesso ao cadastrar peso no servidor. Removendo id local: $idLocalGerado")
                     pesoDao.deletarPesoPendente(idLocalGerado)
                 } else {
                     Log.e("PESO_API", "Erro HTTP ${response.code()}: ${response.errorBody()?.string()}")
                 }
             } catch (e: Exception) {
-                Log.e("PESO_API", "Erro de conexão (mantido no Room offline): ${e.localizedMessage}")
+                Log.e("PESO_API", "Erro de conexão (peso salvo localmente): ${e.localizedMessage}")
             } finally {
                 carregarDadosHome(idUsuario)
             }
         }
     }
 
-    fun atualizarMetaPeso(idUsuario: Long, novaMeta: Double) {
+    fun atualizarMetaPeso(idUsuario: Long = sessionManager.obterUserId(), novaMeta: Double) {
         viewModelScope.launch {
             val estadoAtual = _uiState.value
             if (estadoAtual is HomeUiState.Sucesso) {
@@ -204,7 +227,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun deletarSessao(idSessao: Long, idUsuario: Long) {
+    fun deletarSessao(idSessao: Long, idUsuario: Long = sessionManager.obterUserId()) {
         viewModelScope.launch {
             try {
                 sessaoPendenteDao.deletarSeriesDaSessao(idSessao)
