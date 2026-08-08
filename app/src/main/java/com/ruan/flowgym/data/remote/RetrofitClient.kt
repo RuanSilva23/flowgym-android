@@ -12,12 +12,15 @@ object RetrofitClient {
     // 💡 Se estiver no cabo USB com 'adb reverse tcp:8080 tcp:8080', altere para: "http://127.0.0.1:8080/"
     private const val BASE_URL = "http://192.168.31.161:8080/"
 
+    var userToken: String? = null
+
     // 1. Interceptor de Log
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
     }
 
-    // 2. OkHttpClient com Logging e Timeout adequado para Wi-Fi (10s)
+
+    // 2. OkHttpClient com Logging e Timeout adequado para Wi-Fi (3s)
     private val okHttpClient = OkHttpClient.Builder()
         .addInterceptor(loggingInterceptor) // 👈 Agora o log está vinculado!
         .connectTimeout(10, TimeUnit.SECONDS)
