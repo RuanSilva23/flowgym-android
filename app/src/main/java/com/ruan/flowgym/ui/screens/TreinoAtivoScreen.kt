@@ -26,6 +26,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ruan.flowgym.data.model.SerieTreinoResponseDTO
+import com.ruan.flowgym.ui.components.ResumoTreinoDialog
 import com.ruan.flowgym.ui.viewmodel.TreinoAtivoViewModel
 import com.ruan.flowgym.ui.viewmodel.TreinoUiState
 
@@ -39,6 +40,7 @@ fun TreinoAtivoScreen(
     val tempoTotal by treinoViewModel.tempoTotalDescanso.collectAsState()
 
     var serieParaEditar by remember { mutableStateOf<SerieTreinoResponseDTO?>(null) }
+    var exibirModalResumo by remember { mutableStateOf(false) }
 
     var tabSelecionada by remember { mutableIntStateOf(0) }
     var exercicioIndexAtual by remember { mutableIntStateOf(0) }
@@ -458,10 +460,10 @@ fun TreinoAtivoScreen(
                                         )
                                     }
 
+                                    // Botão Finalizar aciona o modal de resumo
                                     Button(
                                         onClick = {
-                                            treinoViewModel.finalizarTreino(idSessao)
-                                            onFinalizarTreinoClick()
+                                            exibirModalResumo = true
                                         },
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = MaterialTheme.colorScheme.error
@@ -499,6 +501,20 @@ fun TreinoAtivoScreen(
                                 }
                             }
                         }
+                    }
+
+                    // Modal de Resumo com Métricas ao Finalizar
+                    if (exibirModalResumo) {
+                        ResumoTreinoDialog(
+                            nomeRotina = state.sessao.nomeRotina ?: "Treino Livre",
+                            dataHoraInicio = state.sessao.dataHoraInicio ?: state.sessao.dataInicio,
+                            seriesRealizadas = state.series,
+                            onConfirmarConclusao = {
+                                exibirModalResumo = false
+                                treinoViewModel.finalizarTreino(idSessao)
+                                onFinalizarTreinoClick()
+                            }
+                        )
                     }
                 }
             }
