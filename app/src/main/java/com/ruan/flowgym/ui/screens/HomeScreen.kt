@@ -2,7 +2,6 @@ package com.ruan.flowgym.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.ruan.flowgym.data.model.SessaoTreinoResponseDTO
 import com.ruan.flowgym.ui.screens.components.CardEvolucaoPeso
 import com.ruan.flowgym.ui.viewmodel.HomeUiState
@@ -31,8 +31,6 @@ import java.util.Calendar
 
 @Composable
 fun HomeScreen(
-    nomeUsuario: String = "Ruan",
-    idUsuario: Long = 1L,
     viewModel: HomeViewModel = hiltViewModel(),
     onIniciarTreinoClick: () -> Unit = {}
 ) {
@@ -40,7 +38,7 @@ fun HomeScreen(
     var exibirModalHistoricoCompleto by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        viewModel.carregarDadosHome(idUsuario)
+        viewModel.carregarDadosHome()
     }
 
     Scaffold(
@@ -69,7 +67,7 @@ fun HomeScreen(
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.carregarDadosHome(idUsuario) }) {
+                        Button(onClick = { viewModel.carregarDadosHome() }) {
                             Text("Tentar Novamente")
                         }
                     }
@@ -77,7 +75,6 @@ fun HomeScreen(
 
                 is HomeUiState.Sucesso -> {
                     val sessoes = state.historicoSessoes
-                    // 👈 LIMITE DE 5 TREINOS NO DASHBOARD
                     val ultimasSessoes = sessoes.take(5)
 
                     LazyColumn(
@@ -96,7 +93,7 @@ fun HomeScreen(
                             ) {
                                 Column {
                                     Text(
-                                        text = "Fala, $nomeUsuario! 👋",
+                                        text = "Fala, ${state.nomeUsuario}! 👋",
                                         style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface
@@ -122,38 +119,32 @@ fun HomeScreen(
                             }
                         }
 
-                        // 2. 👈 NOVO: Card Motivacional Diário
+                        // 2. Card Motivacional Diário
                         item {
                             CardMotivacionalDiario()
                         }
 
-                        // Dentro da LazyColumn da HomeScreen.kt:
-
+                        // 3. Card de Evolução de Peso
                         item {
                             CardEvolucaoPeso(
-                                pesoAtual = state.pesoAtual, // Ex: vindo do HomeUiState
+                                pesoAtual = state.pesoAtual,
                                 pesoMeta = state.pesoMeta,
                                 historicoPeso = state.historicoPeso,
                                 onRegistrarNovoPeso = { novoPeso ->
-                                    viewModel.registrarNovoPeso(idUsuario, novoPeso)
+                                    viewModel.registrarNovoPeso(novoPeso = novoPeso)
                                 },
                                 onAtualizarMeta = { novaMeta ->
-                                    viewModel.atualizarMetaPeso(idUsuario, novaMeta)
+                                    viewModel.atualizarMetaPeso(novaMeta = novaMeta)
                                 }
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
                         }
 
-
-
-
-
-                        // 3. Banner para Iniciar Treino
+                        // 4. Banner para Iniciar Treino
                         item {
                             CardNovoTreino(onIniciarClick = onIniciarTreinoClick)
                         }
 
-                        // 4. Cabeçalho de Histórico
+                        // 5. Cabeçalho de Histórico
                         item {
                             Text(
                                 text = "Últimos Treinos",
@@ -163,7 +154,7 @@ fun HomeScreen(
                             )
                         }
 
-                        // 5. Lista de no máximo 5 treinos
+                        // 6. Lista de Histórico
                         if (ultimasSessoes.isEmpty()) {
                             item {
                                 Text(
@@ -177,12 +168,11 @@ fun HomeScreen(
                                 ItemSessaoHistorico(
                                     sessao = sessao,
                                     onDeletarSessao = { idSessao ->
-                                        viewModel.deletarSessao(idSessao, idUsuario)
+                                        viewModel.deletarSessao(idSessao)
                                     }
                                 )
                             }
 
-                            // 6. 👈 Botão "Ver Mais" quando houver mais de 5 treinos
                             if (sessoes.size > 5) {
                                 item {
                                     OutlinedButton(
@@ -216,7 +206,7 @@ fun HomeScreen(
                                             ItemSessaoHistorico(
                                                 sessao = sessao,
                                                 onDeletarSessao = { idSessao ->
-                                                    viewModel.deletarSessao(idSessao, idUsuario)
+                                                    viewModel.deletarSessao(idSessao)
                                                 }
                                             )
                                         }
@@ -236,7 +226,6 @@ fun HomeScreen(
     }
 }
 
-// 👈 COMPONENTE: Card Motivacional com Mensagens Diárias
 @Composable
 fun CardMotivacionalDiario() {
     val frasesMotivacionais = remember {
@@ -249,11 +238,10 @@ fun CardMotivacionalDiario() {
             "Sua única competição é quem você foi ontem.",
             "Pequenos progressos diários resultam em grandes conquistas.",
             "A disciplina te leva aonde a motivação não consegue chegar.",
-            "Sem Dor, Sem Ganhos(NO PAIN, NO GAIN)"
+            "Sem Dor, Sem Ganhos (NO PAIN, NO GAIN)"
         )
     }
 
-    // Calcula o índice com base no dia do ano (troca automaticamente à meia-noite)
     val diaDoAno = remember { Calendar.getInstance().get(Calendar.DAY_OF_YEAR) }
     val fraseHoje = frasesMotivacionais[diaDoAno % frasesMotivacionais.size]
 
@@ -359,7 +347,7 @@ fun ItemSessaoHistorico(
     val listaSeries = sessao.series.orEmpty()
 
     Card(
-        onClick = { expandido = !expandido }, // 👈 Usar o onClick nativo do Card (Material 3)
+        onClick = { expandido = !expandido },
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
@@ -411,23 +399,66 @@ fun ItemSessaoHistorico(
                         }
 
                         exerciciosAgrupados.forEach { (nomeExercicio, series) ->
-                            Text(
-                                text = nomeExercicio,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            )
+                            val primeiraSerie = series.firstOrNull()
+                            val ehAquecimento = primeiraSerie?.aquecimento == true
+                            val grupoBiSet = primeiraSerie?.grupoBiSet
 
-                            series.forEachIndexed { index, serie ->
-                                val carga = serie.carga ?: 0.0
-                                val reps = serie.repeticoes ?: 0
-                                Text(
-                                    text = "  • Série ${index + 1}: ${carga} kg x $reps reps",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(vertical = 2.dp)
-                                )
+                            Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                // Cabeçalho do Exercício no Histórico com Badges
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = nomeExercicio,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+
+                                    if (ehAquecimento) {
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f),
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Text(
+                                                text = "🔥 Aquecimento",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.tertiary,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+
+                                    if (grupoBiSet != null && grupoBiSet > 0) {
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Text(
+                                                text = "⚡ Bi-Set #$grupoBiSet",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.secondary,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(2.dp))
+
+                                series.forEachIndexed { index, serie ->
+                                    val carga = serie.carga ?: 0.0
+                                    val reps = serie.repeticoes ?: 0
+                                    Text(
+                                        text = "  • Série ${index + 1}: ${carga} kg x $reps reps",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(vertical = 1.dp)
+                                    )
+                                }
                             }
                             Spacer(modifier = Modifier.height(4.dp))
                         }

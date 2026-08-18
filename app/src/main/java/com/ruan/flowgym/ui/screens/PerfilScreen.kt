@@ -1,16 +1,17 @@
-package com.ruan.flowgym.ui.screen
+package com.ruan.flowgym.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ruan.flowgym.data.local.SessionManager
 
@@ -19,7 +20,7 @@ fun PerfilScreen(
     sessionManager: SessionManager,
     onLogout: () -> Unit
 ) {
-    val nome = sessionManager.obterNome()
+    val nome = sessionManager.obterNome().ifBlank { "Atleta" }
     val username = sessionManager.obterUsername()
     val userId = sessionManager.obterUserId()
 
@@ -29,20 +30,20 @@ fun PerfilScreen(
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // Avatar com Inicial do Nome
+        // Avatar com ícone de perfil
         Box(
             modifier = Modifier
-                .size(100.dp)
+                .size(90.dp)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Default.Person,
-                contentDescription = "Avatar",
-                modifier = Modifier.size(60.dp),
+                contentDescription = "Foto do Usuário",
+                modifier = Modifier.size(50.dp),
                 tint = MaterialTheme.colorScheme.onPrimaryContainer
             )
         }
@@ -51,14 +52,17 @@ fun PerfilScreen(
 
         Text(
             text = nome,
-            style = MaterialTheme.typography.headlineMedium
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
         )
 
-        Text(
-            text = "@$username",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.outline
-        )
+        if (username.isNotBlank()) {
+            Text(
+                text = "@$username",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
 
         Spacer(modifier = Modifier.height(32.dp))
 
@@ -68,25 +72,31 @@ fun PerfilScreen(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(text = "Informações da Conta", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = "DADOS DA CONTA",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "ID do Usuário", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(text = "#$userId", fontWeight = FontWeight.Bold)
+                }
+
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(text = "ID do Usuário:", color = MaterialTheme.colorScheme.outline)
-                    Text(text = "#$userId")
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(text = "Status:", color = MaterialTheme.colorScheme.outline)
-                    Text(text = "Ativo", color = MaterialTheme.colorScheme.primary)
+                    Text(text = "Status da Sessão", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(text = "Conectado", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -104,9 +114,9 @@ fun PerfilScreen(
                 .fillMaxWidth()
                 .height(50.dp)
         ) {
-            Icon(imageVector = Icons.Default.ExitToApp, contentDescription = null)
+            Icon(imageVector = Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Sair")
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Sair da Conta")
+            Text("Sair da Conta", fontWeight = FontWeight.Bold)
         }
     }
 }

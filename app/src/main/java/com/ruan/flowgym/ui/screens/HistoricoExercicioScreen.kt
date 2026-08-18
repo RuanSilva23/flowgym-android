@@ -1,6 +1,6 @@
 package com.ruan.flowgym.ui.screens
 
-import java.util.Locale
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -8,33 +8,46 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.ruan.flowgym.data.model.SerieTreinoResponseDTO
 import com.ruan.flowgym.ui.viewmodel.HistoricoExercicioUiState
 import com.ruan.flowgym.ui.viewmodel.HistoricoExercicioViewModel
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoricoExercicioScreen(
     idExercicio: Long,
     nomeExercicio: String = "Exercício",
-    idUsuario: Long = 1L,
-    viewModel: HistoricoExercicioViewModel = viewModel(),
+    idUsuario: Long? = null,
+    viewModel: HistoricoExercicioViewModel = hiltViewModel(),
     onVoltarClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(idExercicio) {
-        viewModel.carregarHistorico(idUsuario, idExercicio)
+        if (idUsuario != null) {
+            viewModel.carregarHistorico(idUsuario = idUsuario, idExercicio = idExercicio)
+
+        } else {
+            viewModel.carregarHistorico(idExercicio = idExercicio)
+        }
     }
 
     Scaffold(
@@ -88,7 +101,14 @@ fun HistoricoExercicioScreen(
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Spacer(modifier = Modifier.height(12.dp))
-                        Button(onClick = { viewModel.carregarHistorico(idUsuario, idExercicio) }) {
+                        Button(onClick = {
+                            if (idUsuario != null){
+                                viewModel.carregarHistorico(idUsuario = idUsuario, idExercicio = idExercicio)
+
+                            } else {
+                                viewModel.carregarHistorico(idExercicio = idExercicio)
+                            }
+                        }) {
                             Text("Tentar Novamente")
                         }
                     }
@@ -125,6 +145,10 @@ fun HistoricoExercicioScreen(
                                     modifier = Modifier.weight(1f)
                                 )
                             }
+                        }
+
+                        item {
+                            GraficoEvolucaoCarga(series = series)
                         }
 
                         // Título do Histórico
@@ -208,6 +232,8 @@ fun CardItemHistoricoExercicio(
     cargaPR: Double
 ) {
     val isRecorde = (serie.carga ?: 0.0) >= cargaPR && cargaPR > 0
+    val ehAquecimento = serie.aquecimento == true
+    val grupoBiSet = serie.grupoBiSet
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -248,19 +274,240 @@ fun CardItemHistoricoExercicio(
                 }
 
                 Column {
-                    Text(
-                        text = "${serie.carga ?: 0.0} kg × ${serie.repeticoes ?: 0} reps",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "${serie.carga ?: 0.0} kg × ${serie.repeticoes ?: 0} reps",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
 
+                        if (ehAquecimento) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f),
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = "🔥 Aquecimento",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                )
+                            }
+                        }
+
+                        if (grupoBiSet != null && grupoBiSet > 0) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = "⚡ Bi-Set #$grupoBiSet",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                )
+                            }
+                        }
+
+                    }
                     if (isRecorde) {
                         Text(
                             text = "🏆 Maior carga atingida",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun GraficoEvolucaoCarga(
+    series: List<SerieTreinoResponseDTO>,
+    modifier: Modifier = Modifier
+) {
+    // Ordem cronológica dos pesos
+    val cargas = series.mapNotNull { it.carga?.toFloat() }.reversed()
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Cabeçalho com Ícone e Delta de Progresso (+kg)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ShowChart,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "EVOLUÇÃO DE CARGA",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                if (cargas.size >= 2) {
+                    val primeira = cargas.first()
+                    val ultima = cargas.last()
+                    val delta = ultima - primeira
+                    val sinal = if (delta > 0) "+" else ""
+
+                    Surface(
+                        color = if (delta >= 0)
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                        else
+                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = "$sinal${String.format(Locale.getDefault(), "%.1f", delta)} kg",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (delta >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (cargas.size < 2) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(70.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (cargas.isEmpty())
+                            "Nenhuma série registrada ainda."
+                        else
+                            "Carga atual: ${cargas.first()} kg (adicione mais sessões para traçar o gráfico)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                val maxCarga = cargas.maxOrNull() ?: 1f
+                val minCarga = cargas.minOrNull() ?: 0f
+                val range = if (maxCarga == minCarga) 1f else maxCarga - minCarga
+                val primaryColor = MaterialTheme.colorScheme.primary
+
+                // Indicadores Mínimo e Máximo
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Inicial: ${minCarga}kg",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Máx: ${maxCarga}kg",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Canvas com Curva e Gradiente
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(110.dp)
+                ) {
+                    val width = size.width
+                    val height = size.height
+                    val paddingVertical = 12.dp.toPx()
+                    val drawableHeight = height - (paddingVertical * 2)
+                    val spacing = width / (cargas.size - 1)
+
+                    val points = cargas.mapIndexed { index, carga ->
+                        val x = index * spacing
+                        val y = height - paddingVertical - ((carga - minCarga) / range) * drawableHeight
+                        Offset(x, y)
+                    }
+
+                    // 1. Sombreado em Gradiente Abaixo da Curva
+                    val fillPath = Path().apply {
+                        moveTo(points.first().x, points.first().y)
+                        for (i in 1 until points.size) {
+                            lineTo(points[i].x, points[i].y)
+                        }
+                        lineTo(points.last().x, height)
+                        lineTo(points.first().x, height)
+                        close()
+                    }
+
+                    drawPath(
+                        path = fillPath,
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                primaryColor.copy(alpha = 0.35f),
+                                primaryColor.copy(alpha = 0.0f)
+                            ),
+                            startY = 0f,
+                            endY = height
+                        )
+                    )
+
+                    // 2. Linha Conectando os Pontos
+                    val linePath = Path().apply {
+                        moveTo(points.first().x, points.first().y)
+                        for (i in 1 until points.size) {
+                            lineTo(points[i].x, points[i].y)
+                        }
+                    }
+
+                    drawPath(
+                        path = linePath,
+                        color = primaryColor,
+                        style = Stroke(
+                            width = 3.dp.toPx(),
+                            cap = StrokeCap.Round,
+                            join = StrokeJoin.Round
+                        )
+                    )
+
+                    // 3. Pontos da Linha com Efeito Glow
+                    points.forEach { point ->
+                        drawCircle(
+                            color = primaryColor.copy(alpha = 0.3f),
+                            radius = 6.dp.toPx(),
+                            center = point
+                        )
+                        drawCircle(
+                            color = primaryColor,
+                            radius = 3.5.dp.toPx(),
+                            center = point
                         )
                     }
                 }

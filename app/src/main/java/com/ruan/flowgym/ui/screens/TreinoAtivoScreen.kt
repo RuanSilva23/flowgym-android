@@ -6,11 +6,14 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import com.ruan.flowgym.ui.components.TimerDescansoCard
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.FormatListNumbered
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Timer
@@ -22,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ruan.flowgym.data.model.SerieTreinoResponseDTO
 import com.ruan.flowgym.ui.viewmodel.TreinoAtivoViewModel
 import com.ruan.flowgym.ui.viewmodel.TreinoUiState
 
@@ -34,7 +38,9 @@ fun TreinoAtivoScreen(
     val tempoRestante by treinoViewModel.tempoRestante.collectAsState()
     val tempoTotal by treinoViewModel.tempoTotalDescanso.collectAsState()
 
-    var tabSelecionada by remember { mutableIntStateOf(0) } // 0 = Exercício Atual, 1 = Fila do Treino
+    var serieParaEditar by remember { mutableStateOf<SerieTreinoResponseDTO?>(null) }
+
+    var tabSelecionada by remember { mutableIntStateOf(0) }
     var exercicioIndexAtual by remember { mutableIntStateOf(0) }
 
     Scaffold(
@@ -95,7 +101,17 @@ fun TreinoAtivoScreen(
 
                 is TreinoUiState.Sucesso -> {
                     val rotina = state.rotinaAtiva
-                    val listaItensFicha = rotina?.itens.orEmpty().sortedBy { it.item.ordem }
+                    val todosItens = rotina?.itens.orEmpty()
+
+                    val listaItensFicha = remember(todosItens, state.ordemExerciciosIds) {
+                        if (state.ordemExerciciosIds.isNotEmpty()) {
+                            val mapa = todosItens.associateBy { it.exercicio.id ?: 0L }
+                            state.ordemExerciciosIds.mapNotNull { mapa[it] }
+                        } else {
+                            todosItens.sortedBy { it.item.ordem }
+                        }
+                    }
+
                     val idSessao: Long = state.sessao.id ?: state.sessaoLocalId ?: 0L
 
                     if (exercicioIndexAtual >= listaItensFicha.size && listaItensFicha.isNotEmpty()) {
@@ -103,7 +119,6 @@ fun TreinoAtivoScreen(
                     }
 
                     Column(modifier = Modifier.fillMaxSize()) {
-                        // 1. CONTEÚDO PRINCIPAL (OCUPA O TOPO ATÉ O PAINEL INFERIOR)
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -122,6 +137,11 @@ fun TreinoAtivoScreen(
                                     val cargaAlvo: Double = fichaItem.cargaAlvo ?: 0.0
                                     val tempoDescansoAlvo: Int = fichaItem.descansoSeg ?: 60
 
+                                    val grupoBiSetAtual = fichaItem.grupoBiSet
+                                    val ehBiSet = grupoBiSetAtual != null && grupoBiSetAtual > 0
+                                    val exerciciosMesmoBiSet = listaItensFicha.filter { it.item.grupoBiSet == grupoBiSetAtual && ehBiSet}
+                                    val ehUltimoBiSet = exerciciosMesmoBiSet.lastOrNull()?.exercicio?.id == idExercicioAtual
+
                                     val seriesRegistradasExercicio = state.series.filter {
                                         it.idExercicio == idExercicioAtual
                                     }
@@ -131,7 +151,7 @@ fun TreinoAtivoScreen(
                                             .fillMaxSize()
                                             .padding(16.dp)
                                     ) {
-                                        // Navegador de Exercícios (< 1 de N >)
+                                        // Navegador de Exercícios
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -168,6 +188,11 @@ fun TreinoAtivoScreen(
                                             )
                                         ) {
                                             Column(modifier = Modifier.padding(16.dp)) {
+                                                BadgesTreino(
+                                                    ehAquecimento = fichaItem.aquecimento,
+                                                    grupoBiSet = fichaItem.grupoBiSet
+                                                )
+                                                Spacer(modifier = Modifier.height(4.dp))
                                                 Text(
                                                     text = exercicioObj.nome ?: "Exercício",
                                                     style = MaterialTheme.typography.headlineSmall,
@@ -187,17 +212,18 @@ fun TreinoAtivoScreen(
                                         Spacer(modifier = Modifier.height(12.dp))
 
                                         // Cronômetro
+                                        TimerDescansoCard(
+                                            tempoRestante = tempoRestante,
+                                            tempoTotal = tempoTotal,
+                                            onAdicionarDezSegundos = { treinoViewModel.adicionarTempoDescanso(10) },
+                                            onPular = { treinoViewModel.pularTimerDescanso() }
+                                        )
+
                                         if (tempoRestante > 0) {
-                                            CardCronometroRestrito(
-                                                tempoRestante = tempoRestante,
-                                                tempoTotal = tempoTotal,
-                                                onAdicionarDezSeg = { treinoViewModel.adicionarTempoDescanso(10) },
-                                                onPular = { treinoViewModel.pularTimerDescanso() }
-                                            )
                                             Spacer(modifier = Modifier.height(12.dp))
                                         }
 
-                                        // Form de Entrada
+                                        // Formulário de Registro
                                         FormularioSerieRestrito(
                                             bloqueadoPorDescanso = tempoRestante > 0,
                                             tempoRestante = tempoRestante,
@@ -210,7 +236,11 @@ fun TreinoAtivoScreen(
                                                     carga = carga,
                                                     repeticoes = reps,
                                                     nomeExercicio = exercicioObj.nome ?: "Exercício",
-                                                    tempoDescansoAlvo = tempoDescansoAlvo
+                                                    tempoDescansoAlvo = tempoDescansoAlvo,
+                                                    ehBiSet = ehBiSet,
+                                                    ehUltimoBiSet = ehUltimoBiSet,
+                                                    ehAquecimento = fichaItem.aquecimento,
+                                                    grupoBiSet = fichaItem.grupoBiSet
                                                 )
                                             }
                                         )
@@ -242,6 +272,7 @@ fun TreinoAtivoScreen(
                                             } else {
                                                 itemsIndexed(seriesRegistradasExercicio) { index, serie ->
                                                     Card(
+                                                        onClick = { serieParaEditar = serie },
                                                         modifier = Modifier.fillMaxWidth(),
                                                         shape = RoundedCornerShape(10.dp),
                                                         colors = CardDefaults.cardColors(
@@ -281,7 +312,7 @@ fun TreinoAtivoScreen(
                                     }
                                 }
                             } else {
-                                // ABA 2: FILA DO TREINO
+                                // ABA 2: FILA DO TREINO COM REORDENAÇÃO
                                 LazyColumn(
                                     modifier = Modifier
                                         .fillMaxSize()
@@ -290,7 +321,7 @@ fun TreinoAtivoScreen(
                                 ) {
                                     item {
                                         Text(
-                                            text = "Fila do Treino",
+                                            text = "Fila do Treino (Altere a ordem se o aparelho estiver ocupado)",
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold
                                         )
@@ -322,7 +353,7 @@ fun TreinoAtivoScreen(
                                             Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .padding(16.dp),
+                                                    .padding(12.dp),
                                                 horizontalArrangement = Arrangement.SpaceBetween,
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
@@ -334,34 +365,64 @@ fun TreinoAtivoScreen(
                                                             fontWeight = FontWeight.Bold
                                                         )
                                                         if (index == exercicioIndexAtual) {
-                                                            Spacer(modifier = Modifier.width(8.dp))
+                                                            Spacer(modifier = Modifier.width(6.dp))
                                                             SuggestionChip(
                                                                 onClick = {},
                                                                 label = { Text("EM FOCO", style = MaterialTheme.typography.labelSmall) }
                                                             )
                                                         }
                                                     }
-                                                    Spacer(modifier = Modifier.height(4.dp))
+                                                    Spacer(modifier = Modifier.height(2.dp))
                                                     Text(
                                                         text = "Meta: ${targetSeries}x ${fichaItem.repeticoesAlvo ?: 0} reps | ${fichaItem.cargaAlvo ?: 0.0} kg",
                                                         style = MaterialTheme.typography.bodySmall,
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                                     )
-                                                }
-
-                                                Column(horizontalAlignment = Alignment.End) {
                                                     if (concluido) {
-                                                        Icon(
-                                                            imageVector = Icons.Default.CheckCircle,
-                                                            contentDescription = "Concluído",
-                                                            tint = MaterialTheme.colorScheme.primary
+                                                        Text(
+                                                            text = "✅ Concluído",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            fontWeight = FontWeight.Bold
                                                         )
                                                     } else {
                                                         Text(
                                                             text = "$qtdSeriesFeitas/$targetSeries séries",
-                                                            style = MaterialTheme.typography.labelMedium,
-                                                            fontWeight = FontWeight.Bold,
+                                                            style = MaterialTheme.typography.labelSmall,
                                                             color = MaterialTheme.colorScheme.primary
+                                                        )
+                                                    }
+                                                }
+
+                                                // Botões Subir e Descer
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    IconButton(
+                                                        onClick = {
+                                                            treinoViewModel.moverExercicioParaCima(index)
+                                                            if (exercicioIndexAtual == index) exercicioIndexAtual--
+                                                            else if (exercicioIndexAtual == index - 1) exercicioIndexAtual++
+                                                        },
+                                                        enabled = index > 0
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.KeyboardArrowUp,
+                                                            contentDescription = "Subir ordem",
+                                                            tint = if (index > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                                        )
+                                                    }
+
+                                                    IconButton(
+                                                        onClick = {
+                                                            treinoViewModel.moverExercicioParaBaixo(index)
+                                                            if (exercicioIndexAtual == index) exercicioIndexAtual++
+                                                            else if (exercicioIndexAtual == index + 1) exercicioIndexAtual--
+                                                        },
+                                                        enabled = index < listaItensFicha.size - 1
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.KeyboardArrowDown,
+                                                            contentDescription = "Descer ordem",
+                                                            tint = if (index < listaItensFicha.size - 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
                                                         )
                                                     }
                                                 }
@@ -372,7 +433,7 @@ fun TreinoAtivoScreen(
                             }
                         }
 
-                        // 2. PAINEL DE CONTROLE FIXADO NO RODAPÉ (SUBSTITUI A BOTTOMBAR)
+                        // Painel Inferior
                         Surface(
                             color = MaterialTheme.colorScheme.surfaceVariant,
                             shadowElevation = 8.dp
@@ -441,91 +502,18 @@ fun TreinoAtivoScreen(
                     }
                 }
             }
-        }
-    }
-}
 
-@Composable
-fun CardCronometroRestrito(
-    tempoRestante: Int,
-    tempoTotal: Int,
-    onAdicionarDezSeg: () -> Unit,
-    onPular: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer
-        )
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Timer,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "TEMPO DE DESCANSO",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
-                }
-
-                Text(
-                    text = "${tempoRestante}s",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer
+            serieParaEditar?.let { serie ->
+                DialogEditarSerie(
+                    serie = serie,
+                    onDismiss = { serieParaEditar = null },
+                    onConfirmar = { novaCarga, novasReps ->
+                        serie.id?.let { id ->
+                            treinoViewModel.editarSerie(id, novaCarga, novasReps)
+                        }
+                        serieParaEditar = null
+                    }
                 )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            val progresso = if (tempoTotal > 0) tempoRestante.toFloat() / tempoTotal.toFloat() else 0f
-            LinearProgressIndicator(
-                progress = { progresso },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp),
-                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                trackColor = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.2f)
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedButton(
-                    onClick = onAdicionarDezSeg,
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text("+10s", fontWeight = FontWeight.Bold)
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Button(
-                    onClick = onPular,
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.tertiaryContainer
-                    )
-                ) {
-                    Text("Pular Descanso", fontWeight = FontWeight.Bold)
-                }
             }
         }
     }
@@ -619,6 +607,102 @@ fun FormularioSerieRestrito(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun DialogEditarSerie(
+    serie: SerieTreinoResponseDTO,
+    onDismiss: () -> Unit,
+    onConfirmar: (Double, Int) -> Unit
+) {
+    var cargaText by remember { mutableStateOf(TextFieldValue((serie.carga ?: 0.0).toString())) }
+    var repsText by remember { mutableStateOf(TextFieldValue((serie.repeticoes ?: 0).toString())) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Editar Série", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = cargaText,
+                    onValueChange = { cargaText = it },
+                    label = { Text("Carga (kg)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = repsText,
+                    onValueChange = { repsText = it },
+                    label = { Text("Repetições") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                val carga = cargaText.text.toDoubleOrNull() ?: (serie.carga ?: 0.0)
+                val reps = repsText.text.toIntOrNull() ?: (serie.repeticoes ?: 0)
+                onConfirmar(carga, reps)
+            }) {
+                Text("Salvar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        }
+    )
+}
+
+@Composable
+fun BadgesTreino(
+    ehAquecimento: Boolean,
+    grupoBiSet: Int?,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (ehAquecimento) {
+            SuggestionChip(
+                onClick = {},
+                label = {
+                    Text(
+                        text = "🔥 AQUECIMENTO",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                },
+                colors = SuggestionChipDefaults.suggestionChipColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
+                ),
+                border = null
+            )
+        }
+
+        if (grupoBiSet != null && grupoBiSet > 0) {
+            SuggestionChip(
+                onClick = {},
+                label = {
+                    Text(
+                        text = "⚡ BI-SET #$grupoBiSet",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                },
+                colors = SuggestionChipDefaults.suggestionChipColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                ),
+                border = null
+            )
         }
     }
 }

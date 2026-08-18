@@ -92,7 +92,9 @@ fun CriarFichaDialog(
                             seriesAlvo = item.series.toIntOrNull() ?: 4,
                             repeticoesAlvo = item.reps.toIntOrNull() ?: 10,
                             cargaAlvo = item.carga.toDoubleOrNull() ?: 0.0,
-                            descanso = item.descanso.toIntOrNull() ?: 60
+                            descanso = item.descanso.toIntOrNull() ?: 60,
+                            aquecimento = item.aquecimento,
+                            grupoBiSet = item.grupoBiSet.toIntOrNull()
                         )
                     }
                     onConfirm(nome, descricao, requestItens)
@@ -208,6 +210,33 @@ fun CardItemFichaCriacao(
                     onValueChange = { item.descanso = it },
                     label = { Text("Seg") },
                     modifier = Modifier.weight(1f),
+                    singleLine = true
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                FilterChip(
+                    selected = item.aquecimento,
+                    onClick = { item.aquecimento = !item.aquecimento },
+                    label = { Text("🔥 Aquecimento", style = MaterialTheme.typography.labelSmall) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                )
+
+                OutlinedTextField(
+                    value = item.grupoBiSet,
+                    onValueChange = { item.grupoBiSet = it },
+                    label = { Text("Bi-Set nº") },
+                    placeholder = { Text("Ex: 1") },
+                    modifier = Modifier.width(110.dp),
                     singleLine = true
                 )
             }
