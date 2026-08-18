@@ -1,9 +1,12 @@
 package com.ruan.flowgym.ui.theme
 
 import android.app.Activity
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
@@ -35,15 +38,18 @@ fun FlowGymTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            // Pinta a barra de status com a cor de fundo do app
             window.statusBarColor = colorScheme.background.toArgb()
-            // Garante ícones claros na barra de status
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        content = content
-    )
+    // 💡 Força o LocalIndication a usar o ripple() do Material 3
+    CompositionLocalProvider(
+        LocalIndication provides ripple()
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            content = content
+        )
+    }
 }

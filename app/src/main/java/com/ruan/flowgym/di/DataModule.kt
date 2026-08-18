@@ -59,11 +59,17 @@ object DataModule {
         val authInterceptor = AuthInterceptor(sessionManager)
 
         return OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .addHeader("ngrok-skip-browser-warning", "true")
+                    .build()
+                chain.proceed(request)
+            }
             .addInterceptor(authInterceptor)
             .addInterceptor(loggingInterceptor)
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(10, TimeUnit.SECONDS)
-            .writeTimeout(10, TimeUnit.SECONDS)
+            .connectTimeout(2, TimeUnit.SECONDS)
+            .readTimeout(2, TimeUnit.SECONDS)
+            .writeTimeout(2, TimeUnit.SECONDS)
             .build()
     }
 
@@ -71,7 +77,7 @@ object DataModule {
     @Singleton
     fun provideTreinoApiService(okHttpClient: OkHttpClient): TreinoApiService {
         return Retrofit.Builder()
-            .baseUrl("http://192.168.31.161:8080/")
+            .baseUrl("https://canola-grope-landmark.ngrok-free.dev/")
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
