@@ -2,6 +2,7 @@ package com.ruan.flowgym.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ruan.flowgym.data.local.SessionManager
 import com.ruan.flowgym.data.local.dao.RotinaDao
 import com.ruan.flowgym.data.mapper.toEntity
 import com.ruan.flowgym.data.model.CriarFichaRequestDTO
@@ -21,6 +22,7 @@ import javax.inject.Inject
 @HiltViewModel
 class FichaViewModel @Inject constructor(
     private val apiService: TreinoApiService,
+    private val sessionManager: SessionManager,
     private val rotinaDao: RotinaDao,
     private val exercicioRepository: ExercicioRepository
 ) : ViewModel() {
@@ -32,12 +34,12 @@ class FichaViewModel @Inject constructor(
     val exerciciosDisponiveis: StateFlow<List<ExercicioResponseDTO>> = _exerciciosDisponiveis.asStateFlow()
 
     init {
-        observarFichasLocais(idUsuario = 1L)
-        carregarFichas(idUsuario = 1L)
+        observarFichasLocais(idUsuario = sessionManager.obterUserId())
+        carregarFichas(idUsuario = sessionManager.obterUserId())
     }
 
     // 👈 Carrega as fichas salvas no SQLite (Room) local
-    private fun observarFichasLocais(idUsuario: Long = 1L) {
+    private fun observarFichasLocais(idUsuario: Long = sessionManager.obterUserId()) {
         viewModelScope.launch {
             rotinaDao.listarRotinasPorUsuario(idUsuario).collect { listaRotinasComExercicios ->
                 val listaDtos = listaRotinasComExercicios.map { item ->
@@ -65,7 +67,7 @@ class FichaViewModel @Inject constructor(
         }
     }
 
-    fun carregarFichas(idUsuario: Long = 1L) {
+    fun carregarFichas(idUsuario: Long = sessionManager.obterUserId()) {
         viewModelScope.launch {
             try {
                 exercicioRepository.sincronizarExercicios(idUsuario)
@@ -97,7 +99,7 @@ class FichaViewModel @Inject constructor(
     }
 
     fun criarFicha(
-        idUsuario: Long = 1L,
+        idUsuario: Long = sessionManager.obterUserId(),
         nome: String,
         descricao: String,
         itens: List<ItemFichaRequestDTO>,
@@ -125,7 +127,7 @@ class FichaViewModel @Inject constructor(
         }
     }
 
-    fun deletarFicha(idFicha: Long, idUsuario: Long = 1L) {
+    fun deletarFicha(idFicha: Long, idUsuario: Long = sessionManager.obterUserId()) {
         viewModelScope.launch {
             try {
                 rotinaDao.deletarRotina(idFicha)
@@ -139,7 +141,7 @@ class FichaViewModel @Inject constructor(
 
     fun editarFicha(
         idFicha: Long,
-        idUsuario: Long = 1L,
+        idUsuario: Long = sessionManager.obterUserId(),
         nome: String,
         descricao: String,
         itens: List<ItemFichaRequestDTO>

@@ -35,5 +35,7 @@ data class FichaExercicioEntity(
     val seriesAlvo: Int,
     val repeticoesAlvo: Int,
     val cargaAlvo: Double,
-    val descansoSeg: Int
+    val descansoSeg: Int,
+    val aquecimento: Boolean = false,
+    val grupoBiSet: Int? = null
 )

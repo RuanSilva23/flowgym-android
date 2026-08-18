@@ -16,7 +16,9 @@ data class ItemFichaRequestDTO(
     val seriesAlvo: Int,
     val repeticoesAlvo: Int,
     val cargaAlvo: Double,
-    val descanso: Int
+    val descanso: Int,
+    val aquecimento: Boolean = false,
+    val grupoBiSet: Int? = null
 )
 
 // Response recebido do backend (Spring Boot)
@@ -39,5 +41,7 @@ data class FichaResponseDTO(
     @SerializedName("descanso") // 👈 CORREÇÃO CRÍTICA: Mapeia o "descanso" do Java
     val descanso: Int,
 
-    val grupoMuscular: String? // Mapeia o Enum GrupoMuscular do Java como String
+    val grupoMuscular: String?, // Mapeia o Enum GrupoMuscular do Java como String
+    val aquecimento: Boolean? = false,
+    val grupoBiSet: Int? = null
 )

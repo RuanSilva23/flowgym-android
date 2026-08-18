@@ -15,6 +15,8 @@ class AuthInterceptor(private val sessionManager: SessionManager) : Interceptor 
 
         val requestBuilder = originalRequest.newBuilder()
 
+        requestBuilder.addHeader("ngrok-skip-browser-warning", "true")
+
         if (!token.isNullOrEmpty()) {
             val bearerToken = "Bearer $token"
             requestBuilder.header("Authorization", bearerToken)

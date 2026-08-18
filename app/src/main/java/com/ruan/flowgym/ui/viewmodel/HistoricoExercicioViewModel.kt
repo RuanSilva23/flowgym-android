@@ -2,6 +2,7 @@ package com.ruan.flowgym.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ruan.flowgym.data.local.SessionManager
 import com.ruan.flowgym.data.model.SerieTreinoResponseDTO
 import com.ruan.flowgym.data.remote.RetrofitClient
 import com.ruan.flowgym.data.remote.TreinoApiService
@@ -20,17 +21,18 @@ sealed interface HistoricoExercicioUiState {
 
 @HiltViewModel
 class HistoricoExercicioViewModel @Inject constructor(
-    private val api: TreinoApiService
+    private val api: TreinoApiService,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<HistoricoExercicioUiState>(HistoricoExercicioUiState.Loading)
     val uiState: StateFlow<HistoricoExercicioUiState> = _uiState.asStateFlow()
 
-    fun carregarHistorico(idUsuario: Long = 1L, idExercicio: Long) {
+    fun carregarHistorico(idUsuario: Long = sessionManager.obterUserId(), idExercicio: Long) {
         viewModelScope.launch {
             _uiState.value = HistoricoExercicioUiState.Loading
             try {
-                val response = RetrofitClient.apiService.buscarHistoricoExercicio(idUsuario, idExercicio)
+                val response = api.buscarHistoricoExercicio(idUsuario, idExercicio)
                 if (response.isSuccessful) {
                     val lista = response.body() ?: emptyList()
                     _uiState.value = HistoricoExercicioUiState.Sucesso(lista)

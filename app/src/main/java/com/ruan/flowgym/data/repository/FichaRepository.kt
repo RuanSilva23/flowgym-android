@@ -2,6 +2,7 @@ package com.ruan.flowgym.data.repository
 
 import com.ruan.flowgym.data.local.model.RotinaComExercicios
 import com.ruan.flowgym.data.model.CriarFichaRequestDTO
+import com.ruan.flowgym.data.model.ItemFichaRequestDTO
 import kotlinx.coroutines.flow.Flow
 
 interface FichaRepository {
@@ -13,4 +14,13 @@ interface FichaRepository {
 
     // Envia a nova ficha para a API e persiste o resultado localmente
     suspend fun criarFicha(dto: CriarFichaRequestDTO): Result<Unit>
+
+    suspend fun editarFicha(
+        idFicha: Long,
+        usuarioId: Long,
+        nome: String,
+        descricao: String?,
+        itens: List<ItemFichaRequestDTO>
+
+    ): Result<Unit>
 }

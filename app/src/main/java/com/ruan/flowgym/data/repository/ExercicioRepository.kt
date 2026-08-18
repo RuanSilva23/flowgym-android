@@ -13,7 +13,7 @@ class ExercicioRepository(
     val todosExercicios: Flow<List<ExercicioEntity>> = dao.listarTodos()
 
     // Sincroniza em segundo plano sem travar a leitura do Room
-    suspend fun sincronizarExercicios(idUsuario: Long = 1L) {
+    suspend fun sincronizarExercicios(idUsuario: Long) {
         try {
             val response = api.listarExercicios(idUsuario)
             if (response.isSuccessful && response.body() != null) {

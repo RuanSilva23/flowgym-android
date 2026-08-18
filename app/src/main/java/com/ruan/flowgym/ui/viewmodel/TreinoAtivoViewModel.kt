@@ -1,5 +1,7 @@
 package com.ruan.flowgym.ui.viewmodel
 
+import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ruan.flowgym.data.local.dao.RotinaDao
@@ -7,19 +9,22 @@ import com.ruan.flowgym.data.local.dao.SessaoPendenteDao
 import com.ruan.flowgym.data.local.entity.SeriePendenteEntity
 import com.ruan.flowgym.data.local.entity.SessaoPendenteEntity
 import com.ruan.flowgym.data.local.model.RotinaComExercicios
+import com.ruan.flowgym.data.model.EditarSerieRequestDTO
 import com.ruan.flowgym.data.model.NovaSerieRequestDTO
 import com.ruan.flowgym.data.model.SerieTreinoResponseDTO
 import com.ruan.flowgym.data.model.SessaoTreinoResponseDTO
 import com.ruan.flowgym.data.remote.TreinoApiService
 import com.ruan.flowgym.data.repository.ExercicioRepository
+import com.ruan.flowgym.ui.util.TimerAlertHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.time.LocalDateTime
+import java.util.Collections
 import javax.inject.Inject
 
 sealed interface TreinoUiState {
@@ -28,6 +33,7 @@ sealed interface TreinoUiState {
     data class Sucesso(
         val sessao: SessaoTreinoResponseDTO,
         val rotinaAtiva: RotinaComExercicios? = null,
+        val ordemExerciciosIds: List<Long> = emptyList(),
         val series: List<SerieTreinoResponseDTO> = emptyList(),
         val sessaoLocalId: Long? = null
     ) : TreinoUiState
@@ -36,12 +42,14 @@ sealed interface TreinoUiState {
 
 @HiltViewModel
 class TreinoAtivoViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val rotinaDao: RotinaDao,
     private val sessaoPendenteDao: SessaoPendenteDao,
     private val exercicioRepository: ExercicioRepository,
     private val api: TreinoApiService
 ) : ViewModel() {
 
+    private val timerAlertHelper = TimerAlertHelper(context)
     private val _uiState = MutableStateFlow<TreinoUiState>(TreinoUiState.Idle)
     val uiState: StateFlow<TreinoUiState> = _uiState.asStateFlow()
 
@@ -57,7 +65,6 @@ class TreinoAtivoViewModel @Inject constructor(
         sincronizarTreinosPendentes()
     }
 
-    // 👈 Sincroniza treinos guardados offline com o Spring Boot assim que houver conexão
     fun sincronizarTreinosPendentes() {
         viewModelScope.launch {
             try {
@@ -80,14 +87,11 @@ class TreinoAtivoViewModel @Inject constructor(
                         }
                         api.finalizarSessao(idSessaoServidor)
 
-                        // Limpa a pendência do celular após enviar com sucesso
                         sessaoPendenteDao.deletarSeriesDaSessao(sessao.idLocal)
                         sessaoPendenteDao.deletarSessaoPendente(sessao.idLocal)
                     }
                 }
-            } catch (_: Exception) {
-                // Se continuar offline, mantém no banco local para tentar na próxima vez
-            }
+            } catch (_: Exception) { }
         }
     }
 
@@ -108,7 +112,6 @@ class TreinoAtivoViewModel @Inject constructor(
                     }
                 } catch (_: Exception) { }
 
-                // Fallback Offline: Grava sessão pendente no SQLite (Room)
                 if (sessaoDto == null) {
                     val dataAtualFormatada = java.text.SimpleDateFormat(
                         "yyyy-MM-dd'T'HH:mm:ss",
@@ -131,14 +134,37 @@ class TreinoAtivoViewModel @Inject constructor(
                     )
                 }
 
+                val ordemInicial = rotinaComExercicios?.itens.orEmpty()
+                    .sortedBy { it.item.ordem }
+                    .mapNotNull { it.exercicio.id }
+
                 _uiState.value = TreinoUiState.Sucesso(
                     sessao = sessaoDto,
                     rotinaAtiva = rotinaComExercicios,
+                    ordemExerciciosIds = ordemInicial,
                     sessaoLocalId = sessaoLocalId
                 )
             } catch (e: Exception) {
                 _uiState.value = TreinoUiState.Erro("Erro ao iniciar treino: ${e.localizedMessage}")
             }
+        }
+    }
+
+    fun moverExercicioParaCima(index: Int) {
+        val state = _uiState.value
+        if (state is TreinoUiState.Sucesso && index > 0 && index < state.ordemExerciciosIds.size) {
+            val lista = state.ordemExerciciosIds.toMutableList()
+            Collections.swap(lista, index, index - 1)
+            _uiState.value = state.copy(ordemExerciciosIds = lista)
+        }
+    }
+
+    fun moverExercicioParaBaixo(index: Int) {
+        val state = _uiState.value
+        if (state is TreinoUiState.Sucesso && index >= 0 && index < state.ordemExerciciosIds.size - 1) {
+            val lista = state.ordemExerciciosIds.toMutableList()
+            Collections.swap(lista, index, index + 1)
+            _uiState.value = state.copy(ordemExerciciosIds = lista)
         }
     }
 
@@ -148,7 +174,11 @@ class TreinoAtivoViewModel @Inject constructor(
         carga: Double,
         repeticoes: Int,
         nomeExercicio: String = "Exercício",
-        tempoDescansoAlvo: Int = 60
+        tempoDescansoAlvo: Int = 60,
+        ehBiSet: Boolean = false,
+        ehUltimoBiSet: Boolean = false,
+        ehAquecimento: Boolean = false,
+        grupoBiSet: Int? = null
     ) {
         viewModelScope.launch {
             val currentState = _uiState.value
@@ -156,13 +186,11 @@ class TreinoAtivoViewModel @Inject constructor(
                 var novaSerie: SerieTreinoResponseDTO? = null
 
                 try {
-                    val request = NovaSerieRequestDTO(idSessao, idExercicio, carga, repeticoes)
+                    val request = NovaSerieRequestDTO(idSessao, idExercicio, carga, repeticoes, ehAquecimento, grupoBiSet)
                     val response = api.registrarSerie(request)
 
                     if (response.isSuccessful && response.body() != null) {
                         val serieBackend = response.body()!!
-
-                        // Garante o ID e Nome do exercício correto caso venham zerados do backend
                         val idExercicioFinal = if (serieBackend.idExercicio == 0L) idExercicio else serieBackend.idExercicio
                         val nomeExercicioFinal = if (serieBackend.nomeExercicio.isBlank() || serieBackend.nomeExercicio == "Exercício") {
                             nomeExercicio
@@ -172,12 +200,13 @@ class TreinoAtivoViewModel @Inject constructor(
 
                         novaSerie = serieBackend.copy(
                             idExercicio = idExercicioFinal,
-                            nomeExercicio = nomeExercicioFinal
+                            nomeExercicio = nomeExercicioFinal,
+                            aquecimento = ehAquecimento,
+                            grupoBiSet = grupoBiSet
                         )
                     }
                 } catch (_: Exception) { }
 
-                // Fallback Offline: se o servidor estiver fora, gera a série localmente na UI
                 if (novaSerie == null) {
                     val localId = currentState.sessaoLocalId ?: idSessao
                     sessaoPendenteDao.salvarSeriePendente(
@@ -195,14 +224,48 @@ class TreinoAtivoViewModel @Inject constructor(
                         idExercicio = idExercicio,
                         nomeExercicio = nomeExercicio,
                         carga = carga,
-                        repeticoes = repeticoes
+                        repeticoes = repeticoes,
+                        aquecimento = ehAquecimento,
+                        grupoBiSet = grupoBiSet
                     )
                 }
 
                 val listaAtualizada = currentState.series + novaSerie
                 _uiState.value = currentState.copy(series = listaAtualizada)
 
-                iniciarTimerDescanso(if (tempoDescansoAlvo > 0) tempoDescansoAlvo else 60)
+                if (ehBiSet && !ehUltimoBiSet){
+                    pularTimerDescanso()
+
+                } else {
+                    iniciarTimerDescanso(if (tempoDescansoAlvo > 0) tempoDescansoAlvo else 60)
+                }
+            }
+        }
+    }
+
+    fun editarSerie(idSerie: Long, novaCarga: Double, novasReps: Int) {
+        viewModelScope.launch {
+            val currentState = _uiState.value
+            if (currentState is TreinoUiState.Sucesso) {
+                // 1. Atualização Otimista no State
+                val seriesAtualizadas = currentState.series.map { serie ->
+                    if (serie.id == idSerie) {
+                        serie.copy(carga = novaCarga, repeticoes = novasReps)
+                    } else serie
+                }
+                _uiState.value = currentState.copy(series = seriesAtualizadas)
+
+                // 2. Sincronização com o Backend
+                try {
+                    val response = api.editarSerie(idSerie,
+                        EditarSerieRequestDTO(novaCarga, novasReps)
+                    )
+                    if (!response.isSuccessful) {
+                        Log.e("EDITAR_SERIE", "Erro HTTP ${response.code()}: ${response.errorBody()?.string()}")
+                    }
+                } catch (e: Exception) {
+                    Log.e("EDITAR_SERIE", "Falha de conexão ao editar série: ${e.localizedMessage}")
+                }
             }
         }
     }
@@ -217,6 +280,7 @@ class TreinoAtivoViewModel @Inject constructor(
                 delay(1000L)
                 _tempoRestante.value -= 1
             }
+            timerAlertHelper.dispararAlertaFimDescanso()
         }
     }
 
@@ -240,7 +304,6 @@ class TreinoAtivoViewModel @Inject constructor(
                 api.finalizarSessao(idSessao)
             } catch (_: Exception) { }
 
-            // Garante o envio de qualquer treino offline retido
             sincronizarTreinosPendentes()
             _uiState.value = TreinoUiState.Idle
         }
