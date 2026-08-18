@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,6 +25,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.ruan.flowgym.data.local.entity.ExercicioEntity
 import com.ruan.flowgym.data.model.ItemFichaRequestDTO
 import com.ruan.flowgym.data.model.RotinaResponseDTO
+import com.ruan.flowgym.ui.components.DialogSelecionarExercicio
 import com.ruan.flowgym.ui.viewmodel.FichaUiState
 import com.ruan.flowgym.ui.viewmodel.FichaViewModel
 
@@ -466,13 +468,15 @@ fun CardItemFichaEdicao(
     exerciciosDisponiveis: List<ExercicioEntity>,
     onRemover: () -> Unit
 ) {
-    var dropdownExpanded by remember { mutableStateOf(false) }
-    val exercicioSelecionadoNome = exerciciosDisponiveis.find { it.id == item.idExercicio }?.nome ?: "Selecione o Exercício"
+    var exibindoModalBusca by remember { mutableStateOf(false) }
+    val exercicioSelecionado = exerciciosDisponiveis.find { it.id == item.idExercicio }
+    val exercicioNome = exercicioSelecionado?.nome ?: "Selecionar Exercício..."
 
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
+            // Linha 1: Botão Seletor com Busca e Botão Remover
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -480,46 +484,44 @@ fun CardItemFichaEdicao(
             ) {
                 Text("#$index", fontWeight = FontWeight.Bold)
 
-                Box(
+                OutlinedCard(
+                    onClick = { exibindoModalBusca = true },
                     modifier = Modifier
                         .weight(1f)
-                        .padding(horizontal = 8.dp)
+                        .padding(horizontal = 8.dp),
+                    shape = RoundedCornerShape(10.dp)
                 ) {
-                    OutlinedCard(
-                        onClick = { dropdownExpanded = true },
-                        modifier = Modifier.fillMaxWidth()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = exercicioSelecionadoNome,
-                                style = MaterialTheme.typography.bodySmall
+                                text = exercicioNome,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (exercicioSelecionado != null)
+                                    MaterialTheme.colorScheme.onSurface
+                                else
+                                    MaterialTheme.colorScheme.primary
                             )
-                            Icon(
-                                imageVector = Icons.Default.ArrowDropDown,
-                                contentDescription = "Selecionar Exercício"
-                            )
+                            if (exercicioSelecionado?.grupoMuscular != null) {
+                                Text(
+                                    text = exercicioSelecionado.grupoMuscular.uppercase(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
-                    }
-
-                    DropdownMenu(
-                        expanded = dropdownExpanded,
-                        onDismissRequest = { dropdownExpanded = false }
-                    ) {
-                        exerciciosDisponiveis.forEach { ex ->
-                            DropdownMenuItem(
-                                text = { Text(ex.nome) },
-                                onClick = {
-                                    item.idExercicio = ex.id ?: 0L
-                                    dropdownExpanded = false
-                                }
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Buscar Exercício",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
 
@@ -534,6 +536,7 @@ fun CardItemFichaEdicao(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Linha 2: Séries, Reps, Carga e Descanso
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = item.series,
@@ -567,6 +570,7 @@ fun CardItemFichaEdicao(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Linha 3: Aquecimento e Bi-Set
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -592,5 +596,16 @@ fun CardItemFichaEdicao(
                 )
             }
         }
+    }
+
+    // Modal de Busca e Filtro de Exercício
+    if (exibindoModalBusca) {
+        DialogSelecionarExercicio(
+            exerciciosDisponiveis = exerciciosDisponiveis,
+            onExercicioSelecionado = { selecionado ->
+                item.idExercicio = selecionado.id ?: 0L
+            },
+            onDismiss = { exibindoModalBusca = false }
+        )
     }
 }
