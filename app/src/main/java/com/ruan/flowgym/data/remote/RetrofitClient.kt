@@ -1,5 +1,6 @@
 package com.ruan.flowgym.data.remote
 
+import com.ruan.flowgym.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -12,7 +13,7 @@ object RetrofitClient {
     // 💡 Se estiver no cabo USB com 'adb reverse tcp:8080 tcp:8080', altere para: "http://127.0.0.1:8080/"
 //    private const val BASE_URL = "http://192.168.31.161:8080/"
 
-    private const val BASE_URL = "https://canola-grope-landmark.ngrok-free.dev/"
+    private const val BASE_URL = BuildConfig.BASE_URL
 
     var userToken: String? = null
 

@@ -1,4 +1,6 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jetbrains.kotlin.konan.properties.Properties
+import java.io.FileInputStream
 
 plugins {
     alias(libs.plugins.android.application)
@@ -7,6 +9,14 @@ plugins {
     alias(libs.plugins.ksp)
     id("com.google.dagger.hilt.android")
 }
+
+val localProperties = Properties().apply {
+    val localFile = rootProject.file("local.properties")
+    if (localFile.exists()) {
+        load(FileInputStream(localFile))
+    }
+}
+val baseUrl: String = localProperties.getProperty("BASE_URL") ?: "http://10.0.2.2:8080/"
 
 android {
     namespace = "com.ruan.flowgym"
@@ -20,7 +30,10 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
     }
+
+
 
     buildTypes {
         release {
@@ -37,6 +50,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
