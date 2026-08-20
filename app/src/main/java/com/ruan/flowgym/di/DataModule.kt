@@ -25,6 +25,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
+import com.ruan.flowgym.BuildConfig
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -77,7 +78,7 @@ object DataModule {
     @Singleton
     fun provideTreinoApiService(okHttpClient: OkHttpClient): TreinoApiService {
         return Retrofit.Builder()
-            .baseUrl("https://canola-grope-landmark.ngrok-free.dev/")
+            .baseUrl(BuildConfig.BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
