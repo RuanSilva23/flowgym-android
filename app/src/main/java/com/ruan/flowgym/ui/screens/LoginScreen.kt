@@ -1,4 +1,4 @@
-package com.ruan.flowgym.ui.screen
+package com.ruan.flowgym.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions

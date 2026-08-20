@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.ksp) // Usa a versão 2.0.21-1.0.28 vinda do libs.versions.toml
+    alias(libs.plugins.ksp)
     id("com.google.dagger.hilt.android")
 }
 
@@ -40,7 +40,6 @@ android {
     }
 }
 
-// Alinha a versão do Kotlin com a versão do Java (Java 11)
 tasks.withType<KotlinCompile>().configureEach {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
@@ -48,35 +47,45 @@ tasks.withType<KotlinCompile>().configureEach {
 }
 
 dependencies {
-    implementation(libs.androidx.compose.animation)
     // Core & Jetpack Compose
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
-    implementation(platform(libs.androidx.compose.bom))
+
+    // Compose BOM (Atualizado para trazer fundações do Compose 1.7+)
+    implementation(platform("androidx.compose:compose-bom:2024.10.01"))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3)
-    implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation(libs.androidx.compose.animation)
+
+    // 💡 Material 3 1.3.1 (Implementa IndicationNodeFactory no ripple)
+    implementation("androidx.compose.material3:material3:1.3.1")
+
+    // Ícones do Compose
+    implementation("androidx.compose.material:material-icons-core")
     implementation("androidx.compose.material:material-icons-extended")
 
+    // Navegação
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+
+    // OkHttp + Logging
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
-    // ViewModel para Jetpack Compose
+    // ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
 
-    // Retrofit + Conversor Gson para APIs REST
+    // Retrofit
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
 
-    // Room (Usando o Version Catalog)
+    // Room
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
-    // Dagger Hilt (Injeção de Dependências) 👈 ADICIONADOS AQUI
+    // Dagger Hilt
     implementation("com.google.dagger:hilt-android:2.51.1")
     ksp("com.google.dagger:hilt-compiler:2.51.1")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
@@ -85,11 +94,10 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(platform("androidx.compose:compose-bom:2024.10.01"))
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-
 
     implementation("javax.inject:javax.inject:1")
 }

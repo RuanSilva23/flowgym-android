@@ -4,10 +4,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ruan.flowgym.data.local.entity.ExercicioEntity
 import com.ruan.flowgym.data.model.ItemFichaRequestDTO
+import com.ruan.flowgym.ui.components.DialogSelecionarExercicio
 
 @Composable
 fun CriarFichaDialog(
@@ -92,7 +95,9 @@ fun CriarFichaDialog(
                             seriesAlvo = item.series.toIntOrNull() ?: 4,
                             repeticoesAlvo = item.reps.toIntOrNull() ?: 10,
                             cargaAlvo = item.carga.toDoubleOrNull() ?: 0.0,
-                            descanso = item.descanso.toIntOrNull() ?: 60
+                            descanso = item.descanso.toIntOrNull() ?: 60,
+                            aquecimento = item.aquecimento,
+                            grupoBiSet = item.grupoBiSet.toIntOrNull()
                         )
                     }
                     onConfirm(nome, descricao, requestItens)
@@ -117,8 +122,9 @@ fun CardItemFichaCriacao(
     exerciciosDisponiveis: List<ExercicioEntity>,
     onRemover: () -> Unit
 ) {
-    var dropdownExpanded by remember { mutableStateOf(false) }
-    val exercicioSelecionadoNome = exerciciosDisponiveis.find { it.id == item.idExercicio }?.nome ?: "Selecione o Exercício"
+    var exibindoModalBusca by remember { mutableStateOf(false) }
+    val exercicioSelecionado = exerciciosDisponiveis.find { it.id == item.idExercicio }
+    val exercicioNome = exercicioSelecionado?.nome ?: "Selecionar Exercício..."
 
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -131,42 +137,44 @@ fun CardItemFichaCriacao(
             ) {
                 Text("#$index", fontWeight = FontWeight.Bold)
 
-                Box(
+                OutlinedCard(
+                    onClick = { exibindoModalBusca = true },
                     modifier = Modifier
                         .weight(1f)
-                        .padding(horizontal = 8.dp)
+                        .padding(horizontal = 8.dp),
+                    shape = RoundedCornerShape(10.dp)
                 ) {
-                    OutlinedTextField(
-                        value = exercicioSelecionadoNome,
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = {
-                            IconButton(onClick = { dropdownExpanded = !dropdownExpanded }) {
-                                Icon(
-                                    imageVector = Icons.Default.ArrowDropDown,
-                                    contentDescription = "Selecionar Exercício"
-                                )
-                            }
-                        },
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { dropdownExpanded = !dropdownExpanded },
-                        textStyle = MaterialTheme.typography.bodySmall
-                    )
-
-                    DropdownMenu(
-                        expanded = dropdownExpanded,
-                        onDismissRequest = { dropdownExpanded = false }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        exerciciosDisponiveis.forEach { ex ->
-                            DropdownMenuItem(
-                                text = { Text(ex.nome) },
-                                onClick = {
-                                    item.idExercicio = ex.id ?: 0L
-                                    dropdownExpanded = false
-                                }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = exercicioNome,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (exercicioSelecionado != null)
+                                    MaterialTheme.colorScheme.onSurface
+                                else
+                                    MaterialTheme.colorScheme.primary
                             )
+                            if (exercicioSelecionado?.grupoMuscular != null) {
+                                Text(
+                                    text = exercicioSelecionado.grupoMuscular.uppercase(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Buscar Exercício",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
 
@@ -211,6 +219,43 @@ fun CardItemFichaCriacao(
                     singleLine = true
                 )
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                FilterChip(
+                    selected = item.aquecimento,
+                    onClick = { item.aquecimento = !item.aquecimento },
+                    label = { Text("🔥 Aquecimento", style = MaterialTheme.typography.labelSmall) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                )
+
+                OutlinedTextField(
+                    value = item.grupoBiSet,
+                    onValueChange = { item.grupoBiSet = it },
+                    label = { Text("Bi-Set nº") },
+                    placeholder = { Text("Ex: 1") },
+                    modifier = Modifier.width(110.dp),
+                    singleLine = true
+                )
+            }
         }
+    }
+
+    if (exibindoModalBusca) {
+        DialogSelecionarExercicio(
+            exerciciosDisponiveis = exerciciosDisponiveis,
+            onExercicioSelecionado = { selecionado ->
+                item.idExercicio = selecionado.id ?: 0L
+            },
+            onDismiss = { exibindoModalBusca = false }
+        )
     }
 }

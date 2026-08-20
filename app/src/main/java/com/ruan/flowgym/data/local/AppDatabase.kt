@@ -24,7 +24,7 @@ import com.ruan.flowgym.data.local.entity.SessaoPendenteEntity
         SeriePendenteEntity::class,
         PesoEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

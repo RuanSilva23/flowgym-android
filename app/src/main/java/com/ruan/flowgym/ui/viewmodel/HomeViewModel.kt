@@ -8,6 +8,7 @@ import com.ruan.flowgym.data.local.dao.PesoDao
 import com.ruan.flowgym.data.local.dao.SessaoPendenteDao
 import com.ruan.flowgym.data.local.entity.PesoEntity
 import com.ruan.flowgym.data.model.NovaSerieRequestDTO
+import com.ruan.flowgym.data.model.PesoMetaResquestDTO
 import com.ruan.flowgym.data.model.PesoRequestDTO
 import com.ruan.flowgym.data.model.PesoResponseDTO
 import com.ruan.flowgym.data.model.SerieTreinoResponseDTO
@@ -26,10 +27,10 @@ import javax.inject.Inject
 sealed class HomeUiState {
     object Loading : HomeUiState()
     data class Sucesso(
-        val nomeUsuario: String = "Ruan",
+        val nomeUsuario: String,
         val historicoSessoes: List<SessaoTreinoResponseDTO>,
         val pesoAtual: Double? = null,
-        val pesoMeta: Double? = 70.0,
+        val pesoMeta: Double? = null,
         val historicoPeso: List<PesoResponseDTO> = emptyList()
     ) : HomeUiState()
     data class Erro(val mensagem: String) : HomeUiState()
@@ -54,7 +55,12 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun carregarDadosHome(idUsuario: Long = sessionManager.obterUserId()) {
+    fun carregarDadosHome() {
+        val idUsuario = sessionManager.obterUserId()
+        val nomeUsuarioLogado = sessionManager.obterNome().ifBlank { "Atleta" }
+
+        var pesoMetaSalvo = sessionManager.obterPesoMeta()
+
         viewModelScope.launch {
             _uiState.value = HomeUiState.Loading
 
@@ -175,15 +181,34 @@ class HomeViewModel @Inject constructor(
                 emptyList()
             }
 
+            try {
+                val responseMeta = api.buscarPesoMeta(idUsuario)
+
+                if (responseMeta.isSuccessful && responseMeta.body() != null) {
+                    val metaServidor = responseMeta.body()?.get("pesoMeta")
+
+                    if (metaServidor != null && metaServidor > 0.0) {
+                        pesoMetaSalvo = metaServidor
+                        sessionManager.salvarPesoMeta(metaServidor)
+                    }
+                }
+
+            } catch (e: Exception) {
+                Log.e("SYNC_META", "Sem conexão para buscar meta no servidor: ${e.localizedMessage}")
+            }
+
             _uiState.value = HomeUiState.Sucesso(
+                nomeUsuario = nomeUsuarioLogado,
                 historicoSessoes = pendentesLocais + sessoesServidor,
                 pesoAtual = pesoAtualCalculado,
+                pesoMeta =  pesoMetaSalvo,
                 historicoPeso = historicoPesoCompleto
             )
         }
     }
 
-    fun registrarNovoPeso(idUsuario: Long = sessionManager.obterUserId(), novoPeso: Double) {
+    fun registrarNovoPeso(novoPeso: Double) {
+        val idUsuario = sessionManager.obterUserId()
         viewModelScope.launch {
             val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
             val dataAtual = formatter.format(Date())
@@ -213,21 +238,59 @@ class HomeViewModel @Inject constructor(
             } catch (e: Exception) {
                 Log.e("PESO_API", "Erro de conexão (peso salvo localmente): ${e.localizedMessage}")
             } finally {
-                carregarDadosHome(idUsuario)
+                carregarDadosHome()
             }
         }
     }
 
-    fun atualizarMetaPeso(idUsuario: Long = sessionManager.obterUserId(), novaMeta: Double) {
+    fun atualizarMetaPeso(novaMeta: Double) {
+        val idUsuario = sessionManager.obterUserId()
+
         viewModelScope.launch {
-            val estadoAtual = _uiState.value
-            if (estadoAtual is HomeUiState.Sucesso) {
-                _uiState.value = estadoAtual.copy(pesoMeta = novaMeta)
+            val estadoAnterior = _uiState.value
+            val metaAntiga = (estadoAnterior as? HomeUiState.Sucesso)?.pesoMeta
+
+            sessionManager.salvarPesoMeta(novaMeta)
+
+            if (estadoAnterior is HomeUiState.Sucesso) {
+                _uiState.value = estadoAnterior.copy(pesoMeta = novaMeta)
+            }
+
+            try {
+                val dto = PesoMetaResquestDTO(
+                    idUsuario = idUsuario,
+                    pesoMeta = novaMeta
+                )
+
+                val response = api.atualizarPesoMeta(idUsuario, dto)
+
+                if (response.isSuccessful) {
+                    Log.d("PESO_META_API", "Meta de peso atualizada com sucesso no servidor!")
+                } else {
+                    Log.e("PESO_META_API", "Erro HTTP ${response.code()}: ${response.errorBody()?.string()}")
+                    // Reverte para a meta anterior caso a API rejeite
+                    reverterMeta(metaAntiga)
+                }
+            } catch (e: Exception) {
+                Log.e("PESO_META_API", "Falha de conexão ao atualizar meta: ${e.localizedMessage}", e)
+                // Reverte em caso de perda de conexão
+                reverterMeta(metaAntiga)
             }
         }
     }
 
-    fun deletarSessao(idSessao: Long, idUsuario: Long = sessionManager.obterUserId()) {
+    private fun reverterMeta(metaAntiga: Double?) {
+        if (metaAntiga != null) sessionManager.salvarPesoMeta(metaAntiga)
+
+        val estadoAtual = _uiState.value
+        if (estadoAtual is HomeUiState.Sucesso) {
+            _uiState.value = estadoAtual.copy(pesoMeta = metaAntiga)
+        }
+    }
+
+    fun deletarSessao(idSessao: Long) {
+        val idUsuario = sessionManager.obterUserId()
+
         viewModelScope.launch {
             try {
                 sessaoPendenteDao.deletarSeriesDaSessao(idSessao)
@@ -236,7 +299,7 @@ class HomeViewModel @Inject constructor(
             } catch (e: Exception) {
                 Log.e("DELETAR_TREINO", "Falha ao deletar: ${e.localizedMessage}")
             } finally {
-                carregarDadosHome(idUsuario)
+                carregarDadosHome()
             }
         }
     }

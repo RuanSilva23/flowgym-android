@@ -13,5 +13,7 @@ data class SerieTreinoResponseDTO(
 
     val nomeExercicio: String = "Exercício",
     val carga: Double = 0.0,
-    val repeticoes: Int = 0
+    val repeticoes: Int = 0,
+    val aquecimento: Boolean? = false,
+    val grupoBiSet: Int? = null
 )

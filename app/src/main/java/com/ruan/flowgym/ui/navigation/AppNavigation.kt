@@ -7,9 +7,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.ruan.flowgym.data.local.SessionManager
 
-import com.ruan.flowgym.ui.screen.LoginScreen
+import com.ruan.flowgym.ui.screens.LoginScreen
 import com.ruan.flowgym.ui.navigation.MainScreen
-import com.ruan.flowgym.ui.screen.RegisterScreen
+import com.ruan.flowgym.ui.screens.RegisterScreen
 import com.ruan.flowgym.ui.screens.HomeScreen
 import com.ruan.flowgym.ui.viewmodel.AuthViewModel
 import com.ruan.flowgym.ui.viewmodel.HomeViewModel

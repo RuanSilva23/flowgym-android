@@ -1,9 +1,11 @@
 package com.ruan.flowgym.data.remote
 
 import com.ruan.flowgym.data.model.CriarFichaRequestDTO
+import com.ruan.flowgym.data.model.EditarSerieRequestDTO
 import com.ruan.flowgym.data.model.ExercicioResponseDTO
 import com.ruan.flowgym.data.model.LoginDTO
 import com.ruan.flowgym.data.model.NovaSerieRequestDTO
+import com.ruan.flowgym.data.model.PesoMetaResquestDTO
 import com.ruan.flowgym.data.model.PesoRequestDTO
 import com.ruan.flowgym.data.model.PesoResponseDTO
 import com.ruan.flowgym.data.model.RotinaResponseDTO
@@ -42,6 +44,12 @@ interface TreinoApiService {
     suspend fun finalizarSessao(
         @Path("idSessao") idSessao: Long
     ): Response<SessaoTreinoResponseDTO>
+
+    @PUT("treinos/serie/{idSerie}")
+    suspend fun editarSerie(
+        @Path("idSerie") idSerie: Long,
+        @Body dto: EditarSerieRequestDTO
+    ): Response<Void>
 
     @GET("treinos/historico/{idUsuario}")
     suspend fun buscarHistoricoSessoes(
@@ -107,6 +115,17 @@ interface TreinoApiService {
         @Path("id") idUsuario: Long,
         @Body dto: PesoRequestDTO
     ): Response<ResponseBody>
+
+    @PATCH("api/usuario/historicopeso/pesometa/{id}")
+    suspend fun atualizarPesoMeta(
+        @Path("id") idUsuario: Long,
+        @Body dto: PesoMetaResquestDTO
+    ): Response<Unit>
+
+    @GET("api/usuario/historicopeso/pesometa/{idUsuario}")
+    suspend fun buscarPesoMeta(
+        @Path("idUsuario") idUsuario: Long
+    ): Response<Map<String, Double>>
 
     // Buscar o Peso Atual
     @GET("api/usuario/historicopeso/pesoatual/{idUsuario}")

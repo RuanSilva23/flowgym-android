@@ -4,6 +4,7 @@ import com.ruan.flowgym.data.local.dao.RotinaDao
 import com.ruan.flowgym.data.local.model.RotinaComExercicios
 import com.ruan.flowgym.data.mapper.toEntity
 import com.ruan.flowgym.data.model.CriarFichaRequestDTO
+import com.ruan.flowgym.data.model.ItemFichaRequestDTO
 import com.ruan.flowgym.data.remote.TreinoApiService
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
@@ -22,20 +23,20 @@ class FichaRepositoryImpl @Inject constructor(
     override suspend fun sincronizarFichas(usuarioId: Long) {
         try {
             val response = api.listarFichasPorUsuario(usuarioId)
-            if (response.isSuccessful) {
-                response.body()?.let { listaRotinasDto ->
-                    listaRotinasDto.forEach { rotinaDto ->
-                        // Converte usando o Mapper que criamos
-                        val rotinaEntity = rotinaDto.toEntity(usuarioId)
-                        val itensEntities = rotinaDto.exercicios.map { itemDto ->
-                            itemDto.toEntity(rotinaId = rotinaDto.id)
-                        }
-
-                        // Salva no SQLite local
-                        rotinaDao.salvarFichaCompleta(rotinaEntity, itensEntities)
+            if (response.isSuccessful && response.body() != null) {
+                response.body()!!.forEach { rotinaDto ->
+                    // Converte usando o Mapper que criamos
+                    val rotinaId = rotinaDto.id ?: return@forEach
+                    val rotinaEntity = rotinaDto.toEntity(usuarioId)
+                    val itensEntities = rotinaDto.exercicios.orEmpty().map { itemDto ->
+                        itemDto.toEntity(rotinaId = rotinaDto.id)
                     }
+
+                    // Salva no SQLite local
+                    rotinaDao.salvarFichaCompleta(rotinaEntity, itensEntities)
                 }
             }
+
         } catch (e: Exception) {
             // Sem internet? Sem problemas. O app engole o erro de rede
             // e continua exibindo os dados salvos anteriormente no Room.
@@ -48,10 +49,11 @@ class FichaRepositoryImpl @Inject constructor(
             val response = api.montarFicha(dto)
             if (response.isSuccessful && response.body() != null) {
                 val rotinaDto = response.body()!!
+                val rotinaId = rotinaDto.id ?: return Result.failure(Exception("Id de rotina inválido"))
 
                 // Converte a resposta oficial do Spring Boot para o Room
                 val rotinaEntity = rotinaDto.toEntity(dto.idUsuario)
-                val itensEntities = rotinaDto.exercicios.map { itemDto ->
+                val itensEntities = rotinaDto.exercicios.orEmpty().map { itemDto ->
                     itemDto.toEntity(rotinaId = rotinaDto.id)
                 }
 
@@ -67,4 +69,39 @@ class FichaRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
+
+    override suspend fun editarFicha(
+        idFicha: Long,
+        usuarioId: Long,
+        nome: String,
+        descricao: String?,
+        itens: List<ItemFichaRequestDTO>
+    ): Result<Unit> {
+        return try {
+            val dto = CriarFichaRequestDTO(
+                idUsuario = usuarioId,
+                nome = nome,
+                descricao = descricao,
+                itemFicha = itens
+            )
+            val response = api.editarFicha(idFicha, dto)
+            if (response.isSuccessful && response.body() != null) {
+                val rotinaDto = response.body()!!
+                val rotinaId = rotinaDto.id ?: idFicha
+
+                val rotinaEntity = rotinaDto.toEntity(usuarioId)
+                val itensEntities = rotinaDto.exercicios.orEmpty().map { itemDto ->
+                    itemDto.toEntity(rotinaId = rotinaId)
+                }
+
+                rotinaDao.salvarFichaCompleta(rotinaEntity, itensEntities)
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Erro ao atualizar ficha no servidor"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
 }

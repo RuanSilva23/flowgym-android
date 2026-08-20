@@ -25,7 +25,7 @@ import com.ruan.flowgym.ui.viewmodel.ExerciciosViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExerciciosScreen(
-    idUsuario: Long = 1L,
+
     viewModel: ExerciciosViewModel = viewModel(),
     onExercicioClick: (ExercicioResponseDTO) -> Unit = {}
 ) {
@@ -39,7 +39,7 @@ fun ExerciciosScreen(
     )
 
     LaunchedEffect(Unit) {
-        viewModel.carregarExercicios(idUsuario)
+        viewModel.carregarExercicios()
     }
 
     Scaffold(
@@ -101,7 +101,7 @@ fun ExerciciosScreen(
                     val isSelected = grupo == grupoSelecionado
                     FilterChip(
                         selected = isSelected,
-                        onClick = { viewModel.selecionarGrupo(grupo, idUsuario) },
+                        onClick = { viewModel.selecionarGrupo(grupo) },
                         label = {
                             Text(
                                 text = grupo,
@@ -139,7 +139,7 @@ fun ExerciciosScreen(
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Spacer(modifier = Modifier.height(12.dp))
-                            Button(onClick = { viewModel.carregarExercicios(idUsuario) }) {
+                            Button(onClick = { viewModel.carregarExercicios() }) {
                                 Text("Tentar Novamente")
                             }
                         }

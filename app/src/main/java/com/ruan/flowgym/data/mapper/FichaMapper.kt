@@ -8,10 +8,11 @@ import com.ruan.flowgym.data.model.RotinaResponseDTO
 // Transforma a Rotina do Backend no formato do ROOM
 fun RotinaResponseDTO.toEntity(usuarioId: Long): RotinaEntity {
     return RotinaEntity(
-        id = this.id,
+        id = this.id?: 0L,
         usuarioId = usuarioId,
         nome = this.nome,
-        descricao = this.descricao
+        descricao = this.descricao,
+        sincronizado = true
     )
 }
 
@@ -25,6 +26,8 @@ fun FichaResponseDTO.toEntity(rotinaId: Long): FichaExercicioEntity {
         seriesAlvo = this.seriesAlvo,
         repeticoesAlvo = this.repeticoesAlvo,
         cargaAlvo = this.cargaAlvo,
-        descansoSeg = this.descanso
+        descansoSeg = this.descanso,
+        aquecimento = this.aquecimento ?: false,
+        grupoBiSet = this.grupoBiSet
     )
 }

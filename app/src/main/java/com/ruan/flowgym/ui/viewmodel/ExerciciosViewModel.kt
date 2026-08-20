@@ -2,6 +2,7 @@ package com.ruan.flowgym.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ruan.flowgym.data.local.SessionManager
 import com.ruan.flowgym.data.model.ExercicioResponseDTO
 import com.ruan.flowgym.data.repository.ExercicioRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,6 +24,7 @@ sealed interface ExerciciosUiState {
 
 @HiltViewModel
 class ExerciciosViewModel @Inject constructor(
+    private val sessionManager: SessionManager,
     private val exercicioRepository: ExercicioRepository
 ) : ViewModel() {
 
@@ -37,7 +39,7 @@ class ExerciciosViewModel @Inject constructor(
 
     init {
         observarExerciciosLocais()
-        carregarExercicios(idUsuario = 1L)
+        carregarExercicios()
     }
 
     // 👈 Observa o Room em tempo real. Se estiver offline, entrega os dados locais instantaneamente.
@@ -81,7 +83,7 @@ class ExerciciosViewModel @Inject constructor(
         }
     }
 
-    fun carregarExercicios(idUsuario: Long = 1L) {
+    fun carregarExercicios(idUsuario: Long = sessionManager.obterUserId()) {
         viewModelScope.launch {
             // Tenta sincronizar com o backend em segundo plano
             exercicioRepository.sincronizarExercicios(idUsuario)

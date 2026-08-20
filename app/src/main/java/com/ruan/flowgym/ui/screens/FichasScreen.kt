@@ -1,7 +1,6 @@
 package com.ruan.flowgym.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,26 +13,25 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.ruan.flowgym.data.local.entity.ExercicioEntity
 import com.ruan.flowgym.data.model.ItemFichaRequestDTO
 import com.ruan.flowgym.data.model.RotinaResponseDTO
+import com.ruan.flowgym.ui.components.DialogSelecionarExercicio
 import com.ruan.flowgym.ui.viewmodel.FichaUiState
 import com.ruan.flowgym.ui.viewmodel.FichaViewModel
-import androidx.hilt.navigation.compose.hiltViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FichasScreen(
-    idUsuario: Long = 1L,
     fichaViewModel: FichaViewModel = hiltViewModel(),
     onIniciarTreinoClick: (Long) -> Unit = {}
 ) {
@@ -55,7 +53,7 @@ fun FichasScreen(
     }
 
     LaunchedEffect(Unit) {
-        fichaViewModel.carregarFichas(idUsuario)
+        fichaViewModel.carregarFichas()
     }
 
     Scaffold(
@@ -117,7 +115,6 @@ fun FichasScreen(
             onDismiss = { exibindoModalCriacao = false },
             onConfirm = { nome, descricao, itens ->
                 fichaViewModel.criarFicha(
-                    idUsuario = idUsuario,
                     nome = nome,
                     descricao = descricao,
                     itens = itens,
@@ -137,7 +134,6 @@ fun FichasScreen(
                 rotina.id?.let { idRotina ->
                     fichaViewModel.editarFicha(
                         idFicha = idRotina,
-                        idUsuario = idUsuario,
                         nome = nome,
                         descricao = descricao,
                         itens = itens
@@ -156,7 +152,7 @@ fun FichasScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        fichaViewModel.deletarFicha(idFicha, idUsuario)
+                        fichaViewModel.deletarFicha(idFicha)
                         fichaParaDeletar = null
                     }
                 ) {
@@ -182,7 +178,7 @@ fun ItemFichaCard(
     var expandido by remember { mutableStateOf(false) }
 
     Card(
-        onClick = { expandido = !expandido }, // 👈 Usar o onClick nativo do Card do Material 3
+        onClick = { expandido = !expandido },
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
@@ -190,7 +186,6 @@ fun ItemFichaCard(
         )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Cabeçalho: Título, Descrição e Ações
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -244,7 +239,6 @@ fun ItemFichaCard(
                 }
             }
 
-            // Lista de Exercícios + Botão de Início
             AnimatedVisibility(visible = expandido) {
                 Column(modifier = Modifier.padding(top = 12.dp)) {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -278,13 +272,29 @@ fun ItemFichaCard(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = "${index + 1}. $nomeEx",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                                     modifier = Modifier.weight(1f)
-                                )
+                                ) {
+                                    Text(
+                                        text = "${index + 1}. $nomeEx",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    if (itemEx.aquecimento == true) {
+                                        Text("🔥", style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    if (itemEx.grupoBiSet != null && itemEx.grupoBiSet > 0) {
+                                        Text(
+                                            text = "⚡#${itemEx.grupoBiSet}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.secondary
+                                        )
+                                    }
+                                }
                                 Text(
                                     text = "${series}x ${reps} reps | ${carga} kg",
                                     style = MaterialTheme.typography.bodySmall,
@@ -297,7 +307,6 @@ fun ItemFichaCard(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Botão para iniciar treino
                     Button(
                         onClick = { onIniciarTreino(ficha.id ?: 0L) },
                         modifier = Modifier
@@ -326,13 +335,17 @@ class EditableItemFicha(
     series: String = "4",
     reps: String = "10",
     carga: String = "20.0",
-    descanso: String = "60"
+    descanso: String = "60",
+    aquecimento: Boolean = false,
+    grupoBiSet: String = ""
 ) {
     var idExercicio by mutableStateOf(idExercicio)
     var series by mutableStateOf(series)
     var reps by mutableStateOf(reps)
     var carga by mutableStateOf(carga)
     var descanso by mutableStateOf(descanso)
+    var aquecimento by mutableStateOf(aquecimento)
+    var grupoBiSet by mutableStateOf(grupoBiSet)
 }
 
 @Composable
@@ -356,7 +369,9 @@ fun EditarFichaDialog(
                             series = (ex.seriesAlvo ?: 4).toString(),
                             reps = (ex.repeticoesAlvo ?: 10).toString(),
                             carga = (ex.cargaAlvo ?: 0.0).toString(),
-                            descanso = (ex.descanso ?: 60).toString()
+                            descanso = (ex.descanso ?: 60).toString(),
+                            aquecimento = ex.aquecimento ?: false,
+                            grupoBiSet = ex.grupoBiSet?.toString() ?: ""
                         )
                     )
                 }
@@ -373,7 +388,7 @@ fun EditarFichaDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 420.dp),
+                    .heightIn(max = 440.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedTextField(
@@ -426,7 +441,9 @@ fun EditarFichaDialog(
                             seriesAlvo = item.series.toIntOrNull() ?: 4,
                             repeticoesAlvo = item.reps.toIntOrNull() ?: 10,
                             cargaAlvo = item.carga.toDoubleOrNull() ?: 0.0,
-                            descanso = item.descanso.toIntOrNull() ?: 60
+                            descanso = item.descanso.toIntOrNull() ?: 60,
+                            aquecimento = item.aquecimento,
+                            grupoBiSet = item.grupoBiSet.toIntOrNull()
                         )
                     }
                     onConfirm(nome, descricao, requestItens)
@@ -451,13 +468,15 @@ fun CardItemFichaEdicao(
     exerciciosDisponiveis: List<ExercicioEntity>,
     onRemover: () -> Unit
 ) {
-    var dropdownExpanded by remember { mutableStateOf(false) }
-    val exercicioSelecionadoNome = exerciciosDisponiveis.find { it.id == item.idExercicio }?.nome ?: "Selecione o Exercício"
+    var exibindoModalBusca by remember { mutableStateOf(false) }
+    val exercicioSelecionado = exerciciosDisponiveis.find { it.id == item.idExercicio }
+    val exercicioNome = exercicioSelecionado?.nome ?: "Selecionar Exercício..."
 
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
+            // Linha 1: Botão Seletor com Busca e Botão Remover
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -465,46 +484,44 @@ fun CardItemFichaEdicao(
             ) {
                 Text("#$index", fontWeight = FontWeight.Bold)
 
-                Box(
+                OutlinedCard(
+                    onClick = { exibindoModalBusca = true },
                     modifier = Modifier
                         .weight(1f)
-                        .padding(horizontal = 8.dp)
+                        .padding(horizontal = 8.dp),
+                    shape = RoundedCornerShape(10.dp)
                 ) {
-                    OutlinedCard(
-                        onClick = { dropdownExpanded = true },
-                        modifier = Modifier.fillMaxWidth()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = exercicioSelecionadoNome,
-                                style = MaterialTheme.typography.bodySmall
+                                text = exercicioNome,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (exercicioSelecionado != null)
+                                    MaterialTheme.colorScheme.onSurface
+                                else
+                                    MaterialTheme.colorScheme.primary
                             )
-                            Icon(
-                                imageVector = Icons.Default.ArrowDropDown,
-                                contentDescription = "Selecionar Exercício"
-                            )
+                            if (exercicioSelecionado?.grupoMuscular != null) {
+                                Text(
+                                    text = exercicioSelecionado.grupoMuscular.uppercase(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
-                    }
-
-                    DropdownMenu(
-                        expanded = dropdownExpanded,
-                        onDismissRequest = { dropdownExpanded = false }
-                    ) {
-                        exerciciosDisponiveis.forEach { ex ->
-                            DropdownMenuItem(
-                                text = { Text(ex.nome) },
-                                onClick = {
-                                    item.idExercicio = ex.id ?: 0L
-                                    dropdownExpanded = false
-                                }
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Buscar Exercício",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
 
@@ -519,6 +536,7 @@ fun CardItemFichaEdicao(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Linha 2: Séries, Reps, Carga e Descanso
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = item.series,
@@ -549,6 +567,45 @@ fun CardItemFichaEdicao(
                     singleLine = true
                 )
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Linha 3: Aquecimento e Bi-Set
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                FilterChip(
+                    selected = item.aquecimento,
+                    onClick = { item.aquecimento = !item.aquecimento },
+                    label = { Text("🔥 Aquecimento", style = MaterialTheme.typography.labelSmall) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                )
+
+                OutlinedTextField(
+                    value = item.grupoBiSet,
+                    onValueChange = { item.grupoBiSet = it },
+                    label = { Text("Bi-Set nº") },
+                    placeholder = { Text("Ex: 1") },
+                    modifier = Modifier.width(110.dp),
+                    singleLine = true
+                )
+            }
         }
+    }
+
+    // Modal de Busca e Filtro de Exercício
+    if (exibindoModalBusca) {
+        DialogSelecionarExercicio(
+            exerciciosDisponiveis = exerciciosDisponiveis,
+            onExercicioSelecionado = { selecionado ->
+                item.idExercicio = selecionado.id ?: 0L
+            },
+            onDismiss = { exibindoModalBusca = false }
+        )
     }
 }

@@ -33,6 +33,15 @@ class SessionManager(context: Context) {
 
     fun obterUsername(): String = prefs.getString(KEY_USERNAME, "") ?: ""
 
+    fun salvarPesoMeta(pesoMeta: Double) {
+        prefs.edit().putFloat("PESO_META_USUARIO", pesoMeta.toFloat()).apply()
+    }
+
+    fun obterPesoMeta(): Double? {
+        val meta = prefs.getFloat("PESO_META_USUARIO", -1f)
+        return if (meta > 0f) meta.toDouble() else null
+    }
+
     fun limparSessao() {
         prefs.edit().clear().commit()
     }
