@@ -1,4 +1,4 @@
-# ⚡ FlowGym — Android App
+# ⚡ ApexLift — Android App
 
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9%2B-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org/)
 [![Jetpack Compose](https://img.shields.io/badge/Jetpack_Compose-4285F4?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com/jetpack/compose)
@@ -54,7 +54,7 @@ O app adota o padrão **MVVM + Clean Architecture** e o fluxo reativo de dados v
 ## 📁 Estrutura de Pacotes
 
 ```text
-com.ruan.flowgym/
+com.ruan.apexlift/
 ├── data/
 │   ├── local/          # Room Database, DAOs e Entities
 │   ├── mapper/         # Mapeadores DTO <-> Entity <-> Domain
