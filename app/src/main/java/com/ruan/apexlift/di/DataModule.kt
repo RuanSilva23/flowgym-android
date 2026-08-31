@@ -1,0 +1,118 @@
+package com.ruan.apexlift.di
+
+import android.content.Context
+import androidx.room.Room
+import com.ruan.apexlift.data.local.AppDatabase
+import com.ruan.apexlift.data.local.SessionManager
+import com.ruan.apexlift.data.local.dao.ExercicioDao
+import com.ruan.apexlift.data.local.dao.PesoDao
+import com.ruan.apexlift.data.local.dao.RotinaDao
+import com.ruan.apexlift.data.local.dao.SessaoPendenteDao
+import com.ruan.apexlift.data.remote.AuthInterceptor
+import com.ruan.apexlift.data.remote.TreinoApiService
+import com.ruan.apexlift.data.repository.ExercicioRepository
+import com.ruan.apexlift.data.repository.FichaRepository
+import com.ruan.apexlift.data.repository.FichaRepositoryImpl
+import dagger.Binds
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
+import javax.inject.Singleton
+import com.ruan.apexlift.BuildConfig
+
+@Module
+@InstallIn(SingletonComponent::class)
+object DataModule {
+
+    @Provides
+    @Singleton
+    fun provideSessionManager(@ApplicationContext context: Context): SessionManager {
+        return SessionManager(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
+        return Room.databaseBuilder(
+            context.applicationContext,
+            AppDatabase::class.java,
+            "flowgym_database"
+        )
+            .fallbackToDestructiveMigration()
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(sessionManager: SessionManager): OkHttpClient {
+        val loggingInterceptor = HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BODY
+        }
+
+        // Injeta o SessionManager diretamente no Interceptor para ler o Token JWT atualizado
+        val authInterceptor = AuthInterceptor(sessionManager)
+
+        return OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .addHeader("ngrok-skip-browser-warning", "true")
+                    .build()
+                chain.proceed(request)
+            }
+            .addInterceptor(authInterceptor)
+            .addInterceptor(loggingInterceptor)
+            .connectTimeout(2, TimeUnit.SECONDS)
+            .readTimeout(2, TimeUnit.SECONDS)
+            .writeTimeout(2, TimeUnit.SECONDS)
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideTreinoApiService(okHttpClient: OkHttpClient): TreinoApiService {
+        return Retrofit.Builder()
+            .baseUrl(BuildConfig.BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(TreinoApiService::class.java)
+    }
+
+    @Provides
+    fun provideExercicioDao(database: AppDatabase): ExercicioDao = database.exercicioDao()
+
+    @Provides
+    fun provideRotinaDao(database: AppDatabase): RotinaDao = database.rotinaDao()
+
+    @Provides
+    fun provideSessaoPendenteDao(database: AppDatabase): SessaoPendenteDao = database.sessaoPendenteDao()
+
+    @Provides
+    @Singleton
+    fun providePesoDao(database: AppDatabase): PesoDao = database.pesoDao()
+
+    @Provides
+    @Singleton
+    fun provideExercicioRepository(
+        dao: ExercicioDao,
+        api: TreinoApiService
+    ): ExercicioRepository = ExercicioRepository(dao, api)
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class RepositoryModule {
+
+    @Binds
+    @Singleton
+    abstract fun bindFichaRepository(
+        impl: FichaRepositoryImpl
+    ): FichaRepository
+}

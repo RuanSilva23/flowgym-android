@@ -19,11 +19,11 @@ val localProperties = Properties().apply {
 val baseUrl: String = localProperties.getProperty("BASE_URL") ?: "http://10.0.2.2:8080/"
 
 android {
-    namespace = "com.ruan.flowgym"
+    namespace = "com.ruan.apexlift"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.ruan.flowgym"
+        applicationId = "com.ruan.apexlift"
         minSdk = 24
         targetSdk = 35
         versionCode = 1

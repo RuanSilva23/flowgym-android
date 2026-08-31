@@ -1,0 +1,33 @@
+package com.ruan.apexlift.data.mapper
+
+import com.ruan.apexlift.data.local.entity.FichaExercicioEntity
+import com.ruan.apexlift.data.local.entity.RotinaEntity
+import com.ruan.apexlift.data.model.FichaResponseDTO
+import com.ruan.apexlift.data.model.RotinaResponseDTO
+
+// Transforma a Rotina do Backend no formato do ROOM
+fun RotinaResponseDTO.toEntity(usuarioId: Long): RotinaEntity {
+    return RotinaEntity(
+        id = this.id?: 0L,
+        usuarioId = usuarioId,
+        nome = this.nome,
+        descricao = this.descricao,
+        sincronizado = true
+    )
+}
+
+// Transforma o item de exercício do Backend no formato do ROOM
+fun FichaResponseDTO.toEntity(rotinaId: Long): FichaExercicioEntity {
+    return FichaExercicioEntity(
+        id = this.id,
+        rotinaId = rotinaId,
+        exercicioId = this.idExercicio,
+        ordem = this.ordem,
+        seriesAlvo = this.seriesAlvo,
+        repeticoesAlvo = this.repeticoesAlvo,
+        cargaAlvo = this.cargaAlvo,
+        descansoSeg = this.descanso,
+        aquecimento = this.aquecimento ?: false,
+        grupoBiSet = this.grupoBiSet
+    )
+}

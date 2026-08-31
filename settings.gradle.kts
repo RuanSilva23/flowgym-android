@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "flowgym"
+rootProject.name = "apexlift"
 include(":app")

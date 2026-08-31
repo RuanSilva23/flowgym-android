@@ -7,13 +7,13 @@
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
-        android:name=".FlowGymApplication"
+        android:name=".ApexLiftApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Flowgym"
+        android:theme="@style/Theme.ApexLift"
         android:usesCleartextTraffic="true"> <!-- 2. Permite conexões HTTP (10.0.2.2) -->
 
         <activity
